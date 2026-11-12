@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CyberQuest</title>
+  <meta name="description" content="A short, beginner-friendly game about AI and cybersecurity. Spot threats, teach an AI, and save the network.">
+  <meta name="theme-color" content="#0C1424">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/animations.css">
+</head>
+<body data-screen="intro">
+
+  <!-- ============================== START ============================== -->
+  <section class="screen screen-intro" id="screen-intro" aria-labelledby="intro-title">
+    <header class="intro-brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path d="M16 3 5 7.5v7.8c0 6.7 4.6 11.7 11 13.7 6.4-2 11-7 11-13.7V7.5z"/><path d="m11 16 3.5 3.5L21.5 12"/></svg>
+      <span class="brand-name">CyberQuest</span>
+    </header>
+
+    <div class="intro-body">
+      <div class="intro-copy">
+        <p class="intro-kicker">An AI and cybersecurity game</p>
+        <h1 class="intro-title" id="intro-title">You&rsquo;re protecting a network with the help of AI.</h1>
+        <p class="intro-sub">Spot threats, teach your AI, and save the system!</p>
+        <button class="btn btn-primary btn-start" id="btn-start" type="button">Start Game</button>
+        <p class="intro-meta">4 short missions. About 4 minutes. No sign-up.</p>
+        <button class="btn btn-link" id="btn-intro-board" type="button">See the leaderboard</button>
+      </div>
+
+      <figure class="intro-visual">
+        <div class="guide guide--intro">
+          <div class="guide-avatar" aria-hidden="true"><svg viewBox="0 0 48 48"><rect x="8" y="12" width="32" height="26" rx="10"/><circle cx="18.5" cy="25" r="3"/><circle cx="29.5" cy="25" r="3"/><path d="M24 12V6M20 6h8"/></svg></div>
+          <p class="guide-bubble"><strong>Hi, I&rsquo;m NEXUS, your AI helper.</strong> Let&rsquo;s protect this network together!</p>
+        </div>
+        <div class="scene-host" id="intro-scene"></div>
+      </figure>
+    </div>
+
+    <footer class="intro-foot">A learning game made for the Artificial Intelligence &amp; Cybersecurity major at KFUPM. Every event in it is made up.</footer>
+  </section>
+
+  <!-- ============================== PLAY ============================== -->
+  <section class="screen screen-play" id="screen-play" aria-label="CyberQuest game" hidden>
+    <header class="topbar">
+      <div class="brand">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path d="M16 3 5 7.5v7.8c0 6.7 4.6 11.7 11 13.7 6.4-2 11-7 11-13.7V7.5z"/><path d="m11 16 3.5 3.5L21.5 12"/></svg>
+        <span class="brand-name">CyberQuest</span>
+      </div>
+
+      <div class="journey">
+        <p class="journey-label" id="mission-label">Mission 1 of 4: Spot the Threat</p>
+        <div class="journey-bar" role="progressbar" aria-labelledby="mission-label" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress"><span class="journey-fill" id="progress-fill"></span></div>
+      </div>
+
+      <div class="score" aria-live="off">
+        <span class="score-label">Score</span>
+        <span class="score-value" id="score-value">0</span>
+      </div>
+
+      <div class="topbar-controls">
+        <button class="btn btn-icon" id="btn-mute" type="button" aria-pressed="false"></button>
+        <button class="btn btn-icon" id="btn-restart" type="button" aria-label="Restart the game">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3M4.5 4v4.5H9"/></svg>
+          <span class="btn-text">Restart</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="play" id="main">
+      <div class="guide" id="guide">
+        <div class="guide-avatar" aria-hidden="true"><svg viewBox="0 0 48 48"><rect x="8" y="12" width="32" height="26" rx="10"/><circle cx="18.5" cy="25" r="3"/><circle cx="29.5" cy="25" r="3"/><path d="M24 12V6M20 6h8"/></svg></div>
+        <p class="guide-bubble" aria-live="polite"><strong>NEXUS</strong> <span id="guide-text"></span></p>
+      </div>
+      <section class="stage" id="stage" tabindex="-1" aria-label="Current challenge"></section>
+    </main>
+  </section>
+
+  <!-- ============================== RESULTS ============================== -->
+  <section class="screen screen-results" id="screen-results" aria-label="Your results" hidden></section>
+
+  <div class="overlay" id="overlay" hidden>
+    <div class="dialog" id="dialog" role="dialog" aria-modal="true"></div>
+  </div>
+  <div class="toast-zone" id="toasts" aria-live="polite"></div>
+  <div class="sr-only" id="announcer" aria-live="assertive" aria-atomic="true"></div>
+
+  <noscript><div class="noscript">CyberQuest needs JavaScript. Turn it on and reload the page.</div></noscript>
+
+  <script src="js/scenarios.js"></script>
+  <script src="js/ai-engine.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/leaderboard.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/network.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/missions.js"></script>
+  <script src="js/results.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

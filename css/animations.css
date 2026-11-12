@@ -1,0 +1,25 @@
+/*
+ * CyberQuest — motion
+ * Only for things that just changed: a new NEXUS message, new feedback,
+ * the device that needs attention, and points gained or lost.
+ */
+
+@keyframes cq-pop { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes cq-breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+@keyframes cq-rise { 0% { opacity: 0; transform: translateY(0); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
+
+.guide.is-new .guide-bubble { animation: cq-pop 0.3s ease-out both; }
+.feedback { animation: cq-pop 0.3s ease-out both; }
+.stage-split, .stage-center { animation: cq-pop 0.25s ease-out both; }
+.scene-node.is-alert .scene-halo,
+.scene-node.is-danger .scene-halo { animation: cq-breathe 1.6s ease-in-out infinite; }
+.score-delta { animation: cq-rise 1.2s ease-out forwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .score-delta { display: none; }
+}
