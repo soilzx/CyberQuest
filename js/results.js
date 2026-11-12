@@ -17,6 +17,12 @@
     } catch (e) { return ''; }
   }
 
+  // Some hosts (e.g. sandboxed embeds) block page-initiated downloads.
+  // Set window.CQ = { config: { noDownloads: true } } before the scripts load to hide the button.
+  function downloadsAllowed() {
+    return !(CQ.config && CQ.config.noDownloads);
+  }
+
   function pct(a, b) { return b ? Math.round((a / b) * 100) : 0; }
 
   /* ------------------------------------------------------------------ */
@@ -132,7 +138,7 @@
         h('button', { type: 'button', class: 'btn btn-primary btn-xl', on: { click: handlers.onReplay } }, 'Play again'),
         h('button', { type: 'button', class: 'btn btn-secondary', on: { click: handlers.onLeaderboard } }, 'View leaderboard'),
         h('button', { type: 'button', class: 'btn btn-secondary', on: { click: handlers.onLearned } }, 'What you learned'),
-        h('button', { type: 'button', class: 'btn btn-secondary', on: { click: function () { downloadCard(summary); } } }, 'Download result card'))));
+        downloadsAllowed() ? h('button', { type: 'button', class: 'btn btn-secondary', on: { click: function () { downloadCard(summary); } } }, 'Download result card') : null)));
   }
 
   /* ------------------------------------------------------------------ */
