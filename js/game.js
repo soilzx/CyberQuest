@@ -70,10 +70,10 @@
   /* ------------------------------------------------------------------ */
   var RANKS = [
     { id: 'recruit', name: 'Cyber Recruit', min: -Infinity },
-    { id: 'hunter', name: 'Threat Hunter', min: 800 },
-    { id: 'analyst', name: 'Security Analyst', min: 1300 },
-    { id: 'defender', name: 'Cyber Defender', min: 1800 },
-    { id: 'guardian', name: 'Elite AI Guardian', min: 2200 }
+    { id: 'hunter', name: 'Threat Hunter', min: 700 },
+    { id: 'analyst', name: 'Security Analyst', min: 1200 },
+    { id: 'defender', name: 'Cyber Defender', min: 1700 },
+    { id: 'guardian', name: 'Elite AI Guardian', min: 2150 }
   ];
 
   function rankFor(score) {

@@ -3,166 +3,84 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CyberQuest: The AI Defense Protocol</title>
-  <meta name="description" content="An interactive AI security operations simulator. Investigate alerts, train a machine-learning model, work with an AI copilot and stop a simulated cyberattack.">
-  <meta name="theme-color" content="#0B1016">
+  <title>CyberQuest</title>
+  <meta name="description" content="A short, beginner-friendly game about AI and cybersecurity. Spot threats, teach an AI, and save the network.">
+  <meta name="theme-color" content="#0C1424">
   <meta name="color-scheme" content="dark">
   <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml">
-  <link rel="preload" href="assets/fonts/space-grotesk-var.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="assets/fonts/ibm-plex-sans-var.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/animations.css">
 </head>
 <body data-screen="intro">
-  <a class="skip-link" href="#workspace">Skip to the workspace</a>
 
-  <div class="app" id="app">
+  <!-- ============================== START ============================== -->
+  <section class="screen screen-intro" id="screen-intro" aria-labelledby="intro-title">
+    <header class="intro-brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path d="M16 3 5 7.5v7.8c0 6.7 4.6 11.7 11 13.7 6.4-2 11-7 11-13.7V7.5z"/><path d="m11 16 3.5 3.5L21.5 12"/></svg>
+      <span class="brand-name">CyberQuest</span>
+    </header>
 
-    <!-- ============================== INTRO ============================== -->
-    <section class="screen screen-intro" id="screen-intro" aria-labelledby="intro-title">
-      <header class="intro-brand">
-        <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7.5"/><path d="M11 5.5v2.5M11 14v2.5M5.5 11H8M14 11h2.5M16.4 16.4l4.1 4.1"/></svg>
-        <span class="brand-name">CyberQuest</span>
-        <span class="brand-sub">The AI Defense Protocol</span>
-      </header>
-
-      <div class="intro-body">
-        <div class="intro-copy">
-          <p class="alert-flag" role="status"><span class="alert-dot" aria-hidden="true"></span>SECURITY ALERT</p>
-          <h1 class="intro-title" id="intro-title">Suspicious activity detected across the network.</h1>
-          <p class="intro-mission">Your mission: Investigate. Analyze. Defend.</p>
-          <p class="intro-ai">AI can detect patterns. Only you can make the final call.</p>
-
-          <form class="intro-form" id="intro-form" novalidate>
-            <label class="field-label" for="nickname">Agent name <span class="field-optional">optional</span></label>
-            <div class="intro-row">
-              <input class="field-input" id="nickname" name="nickname" type="text" maxlength="16" autocomplete="off" autocapitalize="words" spellcheck="false" placeholder="Leave blank to stay anonymous" aria-describedby="nick-hint">
-              <button class="btn btn-primary btn-xl" id="btn-start" type="submit">INITIALIZE DEFENSE</button>
-            </div>
-            <p class="field-hint" id="nick-hint">Shown on this device&rsquo;s leaderboard. Up to 16 characters.</p>
-          </form>
-
-          <div class="intro-secondary">
-            <button class="btn btn-quiet" id="btn-howto" type="button">How to play</button>
-            <button class="btn btn-quiet" id="btn-intro-board" type="button">Leaderboard</button>
-          </div>
-        </div>
-
-        <figure class="intro-map">
-          <div class="map-host" id="intro-map"></div>
-          <figcaption class="intro-map-caption">The network you are about to defend. Two devices are already showing suspicious activity.</figcaption>
-        </figure>
+    <div class="intro-body">
+      <div class="intro-copy">
+        <p class="intro-kicker">An AI and cybersecurity game</p>
+        <h1 class="intro-title" id="intro-title">You&rsquo;re protecting a network with the help of AI.</h1>
+        <p class="intro-sub">Spot threats, teach your AI, and save the system!</p>
+        <button class="btn btn-primary btn-start" id="btn-start" type="button">Start Game</button>
+        <p class="intro-meta">4 short missions. About 4 minutes. No sign-up.</p>
+        <button class="btn btn-link" id="btn-intro-board" type="button">See the leaderboard</button>
       </div>
 
-      <footer class="intro-foot">
-        <p>Four missions, about four minutes, no sign-up.</p>
-        <p>An educational simulation. Every event, address and person in it is fictional.</p>
-      </footer>
-    </section>
-
-    <!-- ============================== GAME ============================== -->
-    <section class="screen screen-game" id="screen-game" aria-label="Security operations console" hidden>
-      <header class="statusbar">
-        <div class="sb-brand">
-          <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7.5"/><path d="M11 5.5v2.5M11 14v2.5M5.5 11H8M14 11h2.5M16.4 16.4l4.1 4.1"/></svg>
-          <div class="sb-brand-text">
-            <span class="brand-name">CyberQuest</span>
-            <span class="sb-agent" id="agent-name"></span>
-          </div>
+      <figure class="intro-visual">
+        <div class="guide guide--intro">
+          <div class="guide-avatar" aria-hidden="true"><svg viewBox="0 0 48 48"><rect x="8" y="12" width="32" height="26" rx="10"/><circle cx="18.5" cy="25" r="3"/><circle cx="29.5" cy="25" r="3"/><path d="M24 12V6M20 6h8"/></svg></div>
+          <p class="guide-bubble"><strong>Hi, I&rsquo;m NEXUS, your AI helper.</strong> Let&rsquo;s protect this network together!</p>
         </div>
+        <div class="scene-host" id="intro-scene"></div>
+      </figure>
+    </div>
 
-        <nav class="mission-rail-wrap" aria-label="Mission progress">
-          <ol class="mission-rail" id="mission-rail">
-            <li class="mr-item"><span class="mr-index mono">1</span><span class="mr-text"><span class="mr-name">Intrusion</span><span class="mr-progress mono"></span></span></li>
-            <li class="mr-item"><span class="mr-index mono">2</span><span class="mr-text"><span class="mr-name">Train AI</span><span class="mr-progress mono"></span></span></li>
-            <li class="mr-item"><span class="mr-index mono">3</span><span class="mr-text"><span class="mr-name">Human vs. AI</span><span class="mr-progress mono"></span></span></li>
-            <li class="mr-item"><span class="mr-index mono">4</span><span class="mr-text"><span class="mr-name">Final defense</span><span class="mr-progress mono"></span></span></li>
-          </ol>
-        </nav>
+    <footer class="intro-foot">A learning game made for the Artificial Intelligence &amp; Cybersecurity major at KFUPM. Every event in it is made up.</footer>
+  </section>
 
-        <div class="sb-metrics">
-          <div class="metric" id="m-integrity" data-tone="ok">
-            <span class="metric-label">Integrity</span>
-            <span class="metric-value mono">100</span>
-            <span class="metric-bar" role="meter" aria-label="System integrity" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><span class="metric-fill"></span></span>
-          </div>
-          <div class="metric" id="m-stability" data-tone="ok">
-            <span class="metric-label">Stability</span>
-            <span class="metric-value mono">100</span>
-            <span class="metric-bar" role="meter" aria-label="Operational stability" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><span class="metric-fill"></span></span>
-          </div>
-          <div class="metric metric--threat" id="m-threat" role="img" aria-label="Threat level">
-            <span class="metric-label">Threat</span>
-            <span class="metric-value">Guarded</span>
-            <span class="threat-segs" aria-hidden="true"><span class="threat-seg"></span><span class="threat-seg"></span><span class="threat-seg"></span><span class="threat-seg"></span><span class="threat-seg"></span></span>
-          </div>
-        </div>
+  <!-- ============================== PLAY ============================== -->
+  <section class="screen screen-play" id="screen-play" aria-label="CyberQuest game" hidden>
+    <header class="topbar">
+      <div class="brand">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path d="M16 3 5 7.5v7.8c0 6.7 4.6 11.7 11 13.7 6.4-2 11-7 11-13.7V7.5z"/><path d="m11 16 3.5 3.5L21.5 12"/></svg>
+        <span class="brand-name">CyberQuest</span>
+      </div>
 
-        <div class="sb-counters">
-          <div class="counter">
-            <span class="counter-label">Time</span>
-            <span class="counter-value mono" id="c-time">00:00</span>
-          </div>
-          <div class="counter counter--score">
-            <span class="counter-label">Score</span>
-            <span class="counter-value mono" id="c-score" aria-live="off">0</span>
-          </div>
-        </div>
+      <div class="journey">
+        <p class="journey-label" id="mission-label">Mission 1 of 4: Spot the Threat</p>
+        <div class="journey-bar" role="progressbar" aria-labelledby="mission-label" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress"><span class="journey-fill" id="progress-fill"></span></div>
+      </div>
 
-        <div class="sb-controls">
-          <button class="btn btn-icon" id="btn-mute" type="button" aria-pressed="false"></button>
-          <button class="btn btn-icon" id="btn-restart" type="button" aria-label="Restart the game">
-            <svg class="icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M4 10a6 6 0 1 0 1.8-4.3M4 3.5v3h3"/></svg>
-            <span class="btn-text">Restart</span>
-          </button>
-        </div>
-      </header>
+      <div class="score" aria-live="off">
+        <span class="score-label">Score</span>
+        <span class="score-value" id="score-value">0</span>
+      </div>
 
-      <main class="console" id="main">
-        <aside class="panel panel-queue" aria-labelledby="queue-title">
-          <div class="panel-head">
-            <h2 class="panel-title" id="queue-title">Alert queue</h2>
-            <span class="panel-meta mono" id="queue-count"></span>
-          </div>
-          <ul class="queue-list" id="queue-list"></ul>
-          <div class="panel-head panel-head--sub">
-            <h2 class="panel-title panel-title--sub">Event log</h2>
-          </div>
-          <ol class="event-log" id="event-log"></ol>
-        </aside>
+      <div class="topbar-controls">
+        <button class="btn btn-icon" id="btn-mute" type="button" aria-pressed="false"></button>
+        <button class="btn btn-icon" id="btn-restart" type="button" aria-label="Restart the game">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3M4.5 4v4.5H9"/></svg>
+          <span class="btn-text">Restart</span>
+        </button>
+      </div>
+    </header>
 
-        <section class="stage" aria-label="Network and workspace">
-          <div class="stage-map">
-            <div class="stage-map-head">
-              <h2 class="panel-title">Network</h2>
-              <div id="map-legend"></div>
-            </div>
-            <div class="map-host" id="game-map"></div>
-          </div>
-          <div class="workspace" id="workspace" tabindex="-1" aria-label="Workspace"></div>
-        </section>
+    <main class="play" id="main">
+      <div class="guide" id="guide">
+        <div class="guide-avatar" aria-hidden="true"><svg viewBox="0 0 48 48"><rect x="8" y="12" width="32" height="26" rx="10"/><circle cx="18.5" cy="25" r="3"/><circle cx="29.5" cy="25" r="3"/><path d="M24 12V6M20 6h8"/></svg></div>
+        <p class="guide-bubble" aria-live="polite"><strong>NEXUS</strong> <span id="guide-text"></span></p>
+      </div>
+      <section class="stage" id="stage" tabindex="-1" aria-label="Current challenge"></section>
+    </main>
+  </section>
 
-        <aside class="panel panel-nexus" aria-labelledby="nexus-title">
-          <div class="panel-head">
-            <h2 class="panel-title" id="nexus-title">
-              <svg class="nexus-mark" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M5.5 5.5h9v9h-9zM8 8h4v4H8zM8 2.5v3M12 2.5v3M8 14.5v3M12 14.5v3M2.5 8h3M2.5 12h3M14.5 8h3M14.5 12h3"/></svg>
-              NEXUS
-            </h2>
-            <span class="nexus-status mono" id="nexus-status">Monitoring</span>
-          </div>
-          <p class="nexus-disclaimer">Simulated, rule-based copilot. It reads network telemetry only.</p>
-          <ol class="nexus-feed" id="nexus-feed" aria-live="polite" aria-relevant="additions"></ol>
-          <div class="nexus-foot">
-            <button class="btn btn-secondary btn-block" id="btn-hint" type="button">Ask NEXUS for a hint</button>
-          </div>
-        </aside>
-      </main>
-    </section>
-
-    <!-- ============================== RESULTS ============================== -->
-    <section class="screen screen-results" id="screen-results" aria-label="Mission report" hidden></section>
-  </div>
+  <!-- ============================== RESULTS ============================== -->
+  <section class="screen screen-results" id="screen-results" aria-label="Your results" hidden></section>
 
   <div class="overlay" id="overlay" hidden>
     <div class="dialog" id="dialog" role="dialog" aria-modal="true"></div>
@@ -170,9 +88,7 @@
   <div class="toast-zone" id="toasts" aria-live="polite"></div>
   <div class="sr-only" id="announcer" aria-live="assertive" aria-atomic="true"></div>
 
-  <noscript>
-    <div class="noscript">CyberQuest needs JavaScript to run. Enable it and reload the page.</div>
-  </noscript>
+  <noscript><div class="noscript">CyberQuest needs JavaScript. Turn it on and reload the page.</div></noscript>
 
   <script src="js/scenarios.js"></script>
   <script src="js/ai-engine.js"></script>

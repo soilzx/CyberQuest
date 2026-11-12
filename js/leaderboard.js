@@ -95,6 +95,19 @@
         var idx = sorted.findIndex(function (e) { return e.runId === summary.runId; });
         return { added: existing === -1, position: idx >= 0 && idx < LIMIT ? idx + 1 : 0 };
       },
+      /**
+       * Change the name on a saved run (players can add their name after
+       * the game). Returns the run's 1-based position, 0 if not in the top list.
+       */
+      rename: function (runId, nickname) {
+        var entries = all();
+        var entry = entries.find(function (e) { return e.runId === runId; });
+        if (!entry) return { renamed: false, position: 0 };
+        entry.nickname = String(nickname).slice(0, 24);
+        store.save(entries);
+        var idx = entries.findIndex(function (e) { return e.runId === runId; });
+        return { renamed: true, position: idx >= 0 && idx < LIMIT ? idx + 1 : 0 };
+      },
       clear: function () { return store.clear(); },
       count: function () { return all().length; }
     };

@@ -1,237 +1,196 @@
-# CyberQuest: The AI Defense Protocol
+# CyberQuest
 
-CyberQuest is an interactive security-operations simulator that runs in a web browser. The player is an AI security analyst defending a fictional organisation's network. In about four minutes they investigate alerts, train a real machine-learning model, decide when to trust an AI copilot, and respond to a coordinated attack under time pressure.
+**A short, beginner-friendly game about AI and cybersecurity.** Players protect a network with the help of an AI assistant: they spot threats, teach an AI, decide when to trust it, and save the network from an attack. It takes about four minutes and needs no technical background.
 
-It was built as an educational exhibition experience introducing the **Artificial Intelligence & Cybersecurity** major at King Fahd University of Petroleum & Minerals (KFUPM). It is a student/portfolio project and is not an official university product or endorsed by the university.
+CyberQuest was made as an exhibition game for the **Artificial Intelligence & Cybersecurity** major at King Fahd University of Petroleum & Minerals (KFUPM). It is a student project and is not an official university product.
 
-![Mission 1: investigating an alert on the security console](docs/screenshots/console.png)
+![Mission 1: deciding whether activity on the network looks safe or suspicious](docs/screenshots/console.png)
 
 ---
 
 ## Contents
 
-1. [Motivation](#motivation)
-2. [Features](#features)
+1. [Why it exists](#why-it-exists)
+2. [What players learn](#what-players-learn)
 3. [Screenshots](#screenshots)
-4. [Gameplay](#gameplay)
-5. [Technology](#technology)
-6. [Project structure](#project-structure)
-7. [Running locally](#running-locally)
-8. [Deploying to GitHub Pages](#deploying-to-github-pages)
-9. [How the AI works](#how-the-ai-works)
-10. [Educational concepts](#educational-concepts)
+4. [How it plays](#how-it-plays)
+5. [Design principles](#design-principles)
+6. [How the AI works](#how-the-ai-works)
+7. [Technology and structure](#technology-and-structure)
+8. [Running it](#running-it)
+9. [Deploying to GitHub Pages](#deploying-to-github-pages)
+10. [Scoring](#scoring)
 11. [Leaderboard limitations](#leaderboard-limitations)
 12. [Testing](#testing)
 13. [Future improvements](#future-improvements)
 
 ---
 
-## Motivation
+## Why it exists
 
-Visitors to an exhibition booth have a few minutes and no background in security. A poster can say "AI and cybersecurity complement each other". CyberQuest lets them *experience* it instead:
+Most booth visitors are freshmen and prospective students. They have never studied cybersecurity or machine learning, and they have a few minutes at most. CyberQuest gives them a quick, hands-on taste of the field so they leave thinking: *I didn't realise AI and cybersecurity could be this exciting.*
 
-- an anomaly score that is high for perfectly legitimate work,
-- a model that gets worse when they label its training data badly,
-- an AI copilot that is confidently wrong, twice,
-- an incident where blocking the wrong thing hurts the business as much as missing an attack.
+## What players learn
 
-The goal is for visitors to leave thinking: *I didn't realise AI and cybersecurity could be this interesting.*
-
-## Features
-
-- **Four connected missions**, about 3–5 minutes in total, with no sign-up and no reading manual.
-- **Interactive network map**: an SVG schematic of the organisation with device states (suspicious, compromised, isolated, secured), live traffic and clickable devices. It switches to a tall layout on phones.
-- **NEXUS AI copilot**: a transparent rule-based engine that shows every rule it fired and its weight. It can only see network telemetry, so it makes realistic mistakes.
-- **Real machine learning** in Mission 2: a k-nearest-neighbours classifier trained in the browser on the player's labels and evaluated on a held-out test set.
-- **Consequences**: decisions move system integrity, operational stability, threat level and score. Isolating legitimate services costs stability; ignoring threats costs integrity.
-- **Transparent scoring**: every point is written to a ledger that the results screen breaks down line by line. Nothing is random.
-- **Results and ranks**: five deterministic ranks, a result card that can be downloaded as a PNG, and a "What you learned" debrief personalised to the run.
-- **Local leaderboard**: top 10 on the device, with reset protected by a confirmation.
-- **Built for a booth**: large controls, keyboard shortcuts, optional how-to, persistent restart and mute, an idle prompt that returns the game to the start screen, and fully offline operation (fonts are self-hosted).
-- **Accessible**: semantic HTML, keyboard navigation, visible focus, live-region announcements, `prefers-reduced-motion` support and AA contrast for text.
+- Cybersecurity protects computers, accounts and information.
+- AI can help spot unusual activity.
+- AI learns from examples, and bad examples teach it bad lessons.
+- AI makes mistakes: sometimes a false alarm, sometimes a missed attack.
+- People and AI make better security decisions together.
 
 ## Screenshots
 
-These are real captures from the game, not mock-ups. They were taken during a scripted test run, which is why the completion time is so short.
+These are real captures of the game (taken during a scripted test run).
 
-| Start screen | Mission 2: training results |
+| Start screen | Mission 2: the AI's results after training |
 | --- | --- |
-| ![Start screen](docs/screenshots/intro.png) | ![Defender model results](docs/screenshots/training.png) |
+| ![Start screen](docs/screenshots/intro.png) | ![Training results](docs/screenshots/training.png) |
 
-| Mission 3: following or overriding NEXUS | Mission report |
+| Mission 3: do you agree with the AI? | Results |
 | --- | --- |
-| ![Human vs AI](docs/screenshots/versus.png) | ![Results](docs/screenshots/results.png) |
+| ![Can you trust the AI](docs/screenshots/versus.png) | ![Results](docs/screenshots/results.png) |
 
-## Gameplay
+## How it plays
 
-| | Mission | What the player does | Concept |
-| --- | --- | --- | --- |
-| 1 | **Identify the intrusion** | Inspects four overnight alerts and chooses Investigate, Isolate, Allow or Dismiss. Two are legitimate: a scheduled vulnerability scan with a high anomaly score, and an approved admin session. | Anomaly detection, false positives |
-| 2 | **Train the AI defender** | Labels eight events as benign or malicious, trains the model, then sees how it does on six unseen events, including which neighbours drove each prediction. They can flip labels and retrain as an experiment; the score is locked to the first run. | Supervised learning, data quality, uncertainty, data leakage |
-| 3 | **Human vs. AI** | NEXUS recommends an action for four incidents. The player can inspect context records, then follow or override. NEXUS is wrong twice: a month-end backup (false positive) and an MFA-fatigue account takeover (false negative). | Human–AI collaboration |
-| 4 | **Final defense** | Four alerts arrive within seconds and active threats drain integrity every second. The player prioritises, inspects and picks one of three containment options per alert, against a 90-second clock. | Incident response, prioritisation, availability |
+Every screen has one task: a short title, one or two sentences, one picture, and two or three big buttons. After each choice the player sees right away whether it was a good call, a one- or two-sentence explanation, and a Continue button.
 
-### Scoring
+| | Mission | What the player does |
+| --- | --- | --- |
+| 1 | **Spot the Threat** | Four situations, one at a time (a night-time upload, a phishing email, an IT safety check, an approved website update). Decide *Looks safe* or *Looks suspicious*. A clue is one tap away. Two of the four are safe, which shows that unusual does not always mean dangerous. |
+| 2 | **Teach the AI** | Label eight examples as *Safe* or *Suspicious*, one at a time. Press *Train the AI*. The AI then answers six new examples it has never seen, and the game explains any mistakes in plain words, for example: "It got this wrong because you labeled a similar example as safe." |
+| 3 | **Can You Trust the AI?** | NEXUS suggests what to do and says how sure it is. The player reads the clues NEXUS can't see and answers *Yes, follow the AI* or *No, choose differently*. NEXUS is wrong in two of the four cases. |
+| 4 | **Save the Network** | Four urgent problems with a 60-second clock and a network health bar. Real threats drain health every second until they are handled. One problem is just an employee who forgot their password, because not everything is an attack. NEXUS's suggestion is wrong on the last one. |
 
-| Source | Points |
-| --- | --- |
-| Best response (Missions 1, 3) | +100 (+150 for correctly overriding a wrong AI call) |
-| Acceptable / partly right response | +70 / +20–30 |
-| Wrong response | −40 to −80, plus integrity or stability damage |
-| Checking evidence before a correct Mission 3 decision | +20 |
-| Each correct training label / each correct test prediction | +15 / +25 |
-| Mission 4 best / acceptable / wrong option | +150 / +60 / −80 |
-| Mission 4 priority (handling the ransomware first) | +100 (−50 for starting with the legitimate payroll transfer) |
-| Mission 4 unhandled threat | −60 |
-| Mission completion | +50 each |
-| Decisiveness (Missions 1–3, at or under par time) | up to +50 each |
-| Mission 4 time remaining / final integrity | +2 per second / +2 per integrity point |
+**NEXUS**, the AI helper, appears as a friendly guide above the game. Its messages stay short (usually under 25 words), and it offers a hint if a player seems stuck for 20 seconds.
 
-Ranks: **Cyber Recruit** (below 800), **Threat Hunter** (800+), **Security Analyst** (1,300+), **Cyber Defender** (1,800+), **Elite AI Guardian** (2,200+). A perfect, fast run scores roughly 2,600.
+## Design principles
 
-### Keyboard
+- **One screen, one task, one decision.** No alert queues, logs, dashboards or competing panels.
+- **Plain English.** No unexplained jargon. When a concept matters (phishing, ransomware), it is named and explained in one sentence.
+- **Readable at a booth.** Arial throughout, 18px body text, nothing below 16px, large buttons, high contrast. Text scales up on large 1080p screens.
+- **Fits the screen.** Every gameplay screen fits without scrolling at 1366×768, 1440×900 and 1920×1080. Phones get a scrolling single-column layout.
+- **Simple visuals.** The network is four recognisable devices (Internet, Server, Computer, Database). The device involved lights up; the picture supports the story and is never a puzzle.
+- **Calm colour.** Dark navy, white text, one teal accent. Green, amber and red appear only to show results and danger.
 
-| Key | Action |
-| --- | --- |
-| `E` | Inspect evidence |
-| `I` `X` `A` `D` | Investigate / Isolate / Allow / Dismiss (Mission 1) |
-| `F` `O` | Follow AI / Override AI (Mission 3) |
-| `1` `2` `3` | Choose a containment option (Mission 4) |
-| `N` | Next alert or complete the mission |
-| `Esc` | Close a dialog |
+## How the AI works
 
-## Technology
+CyberQuest has two kinds of AI, and the game says which is which.
 
-- HTML5, CSS3 (custom properties, grid, container queries) and vanilla JavaScript (ES2017+).
-- SVG for the network map and rank emblem; Canvas for the downloadable result card.
-- Web Audio API for short synthesised sound effects (no audio files).
-- `localStorage` for the leaderboard and the mute preference.
-- **No frameworks, no build step, no backend, no API keys, no external requests at runtime.**
+### NEXUS: a simulated, rule-based assistant
 
-Scripts are plain classic scripts sharing one `CQ` namespace rather than ES modules. That is deliberate: it means `index.html` also works when opened directly from disk (`file://`), which is common on exhibition laptops.
+NEXUS is **not** a language model and is not connected to anything. It is a set of about twenty hand-written rules in `js/ai-engine.js`. Each situation has hidden *telemetry* (wrong-password counts, how much data is moving compared with normal, whether it is night, whether a website is known). Each rule that fires adds or subtracts points, giving a 0–100 score that becomes a suggestion and a "How sure?" level.
 
-## Project structure
+NEXUS can only see telemetry, never the clues the player sees (calendars, approvals, HR records). That is the realistic reason it gets some cases wrong:
+
+- it wants to block the approved monthly backup (a false alarm),
+- it trusts a login that an attacker tricked the employee into approving (a missed attack),
+- it treats files leaking to a famous cloud website as normal (a missed attack).
+
+These mistakes come out of the rules themselves, and the test suite checks that they happen.
+
+### The trainable AI: a real k-nearest-neighbours classifier
+
+Mission 2 uses genuine machine learning, written in plain JavaScript:
+
+- Each example is described by five numbers: wrong passwords, unusual time, risky website, amount of data and new device.
+- The model learns **only from the player's labels**. The correct answers are used afterwards to tell the player how they did, never for training.
+- It uses *k*-nearest neighbours with *k* = 3: a new example gets the label most common among the three most similar examples the player labeled.
+- It is tested on six separate examples that are never used for training. "Very sure" means all three neighbours agreed; "Not sure" means they split 2 to 1.
+
+With correct labels the AI gets 6 out of 6. Mislabeling a single example such as the huge upload to a brand-new website costs two answers. Labeling everything as safe drops it to 3 out of 6.
+
+## Technology and structure
+
+HTML, CSS and plain JavaScript. **No frameworks, build step, backend, API keys or external requests.** It runs as static files and also works when `index.html` is opened directly from disk.
 
 ```text
 CyberQuest/
-├── index.html              App shell: intro, console, results, dialog layer
+├── index.html            Start, play and results screens
 ├── css/
-│   ├── style.css           Design tokens, fonts, base type, screen layouts, breakpoints
-│   ├── components.css      Buttons, panels, map, case files, lab, dialogs, results
-│   └── animations.css      Functional motion and reduced-motion overrides
+│   ├── style.css         Colours, type sizes, screen layouts, screen-size rules
+│   ├── components.css    Buttons, choices, clues, feedback, network picture, results
+│   └── animations.css    Small motion cues, reduced-motion support
 ├── js/
-│   ├── scenarios.js        All incident data, network topology, mission copy (no logic)
-│   ├── ai-engine.js        NEXUS rule engine and the k-NN classifier
-│   ├── game.js             Game state, scoring ledger, ranks, managed timers (no DOM)
-│   ├── leaderboard.js      Leaderboard with a swappable storage adapter
-│   ├── audio.js            Web Audio sound cues and mute
-│   ├── network.js          SVG network map: layouts, routing, states, packets
-│   ├── ui.js               Safe DOM builder, status bar, queue, NEXUS feed, dialogs
-│   ├── missions.js         The four mission controllers
-│   ├── results.js          Results screen, leaderboard view, debrief, result card
-│   └── app.js              Screen flow, run lifecycle, keyboard, idle watchdog
-├── assets/
-│   ├── fonts/              Self-hosted Space Grotesk, IBM Plex Sans, IBM Plex Mono (OFL)
-│   └── icons/favicon.svg
-├── docs/screenshots/       Captures used in this README
-├── tests/logic.test.js     Dependency-free tests for engine, classifier, scoring, leaderboard
-├── README.md
+│   ├── scenarios.js      All player-facing text and situation data
+│   ├── ai-engine.js      NEXUS rules and the k-nearest-neighbours classifier
+│   ├── game.js           Game state, scoring ledger, ranks, timers (no DOM)
+│   ├── leaderboard.js    Local leaderboard with a swappable storage adapter
+│   ├── audio.js          Short sound effects made with the Web Audio API
+│   ├── network.js        The simple four-device network picture
+│   ├── ui.js             Safe DOM helpers, header, NEXUS bubble, feedback, dialogs
+│   ├── missions.js       The four missions
+│   ├── results.js        Results, leaderboard and "What you learned"
+│   └── app.js            Screen flow, restart, sound, hints, keyboard, idle reset
+├── assets/icons/favicon.svg
+├── docs/screenshots/
+├── tests/logic.test.js   Tests for the AI, scoring and leaderboard
 └── LICENSE
 ```
 
-Gameplay rules (`game.js`, `ai-engine.js`, `scenarios.js`) contain no DOM code, so they can be tested in Node. Scenarios are pure data: adding an incident means adding an object, not changing the engine.
+To change or add situations, edit `js/scenarios.js`; the engine does not need to change.
 
-## Running locally
+## Running it
 
-No installation is needed.
-
-**Option 1: open the file.** Double-click `index.html`. Everything, including fonts, loads from the repository.
-
-**Option 2: serve the folder** (recommended, closest to GitHub Pages):
+Double-click `index.html`, or serve the folder:
 
 ```bash
 python3 -m http.server 8000
 ```
 
-Then open <http://localhost:8000>.
+Then open <http://localhost:8000>. At the booth, open the game in a full-screen browser window (F11). After two minutes without input, the game asks "Still playing?" and returns to the start screen if nobody answers. The results screen also returns to the start on its own.
 
-For an exhibition, open the page in a full-screen browser window (F11). The game returns to the start screen after a period of inactivity, so it's ready for the next visitor.
+**Controls:** mouse or touch everywhere. On a keyboard, `1`, `2` and `3` choose an answer, `C` shows a clue, `Enter` presses the highlighted button, and `Esc` closes a dialog.
 
 ## Deploying to GitHub Pages
 
 1. Push the repository to GitHub.
 2. Open **Settings → Pages**.
-3. Under **Build and deployment**, choose **Deploy from a branch**, select the branch (for example `main`) and the `/ (root)` folder, then save.
-4. After a minute the site is published at `https://<user>.github.io/<repository>/`.
+3. Choose **Deploy from a branch**, pick the branch (for example `main`) and the `/ (root)` folder, and save.
+4. The game appears at `https://<user>.github.io/<repository>/` after a minute or two.
 
-All asset paths are relative, so the game works from a project sub-path, not just a domain root. The repository includes an empty `.nojekyll` file so Pages serves the files as they are.
+All paths are relative, and the repository includes `.nojekyll`.
 
-## How the AI works
+## Scoring
 
-CyberQuest contains two different kinds of "AI", and the game is explicit about which is which.
+Every point comes from a decision, and the results screen can show the full breakdown. Nothing is random.
 
-### NEXUS: a simulated, rule-based copilot
+| Where | Points |
+| --- | --- |
+| Mission 1: right / wrong | +100 / −40 to −80 |
+| Mission 2: each label that matches the experts / each new example the AI gets right | +15 / +25 |
+| Mission 3: following the AI when it is right / disagreeing when it is wrong / a wrong call | +100 / +150 / −40 to −80 |
+| Mission 4: best / okay / wrong choice | +150 / +60 / −80 |
+| Mission 4: unhandled threat when time runs out | −60 |
+| Mission 4: seconds left / final network health | +2 per second / +2 per % |
+| Each mission completed | +50 |
+| Missions 1–3 finished within 50 seconds | up to +50 |
 
-NEXUS is **not** a language model and is **not** connected to anything. It is a weighted rule engine in `js/ai-engine.js`:
-
-- Each incident has *telemetry*: counts, ratios and flags such as failed logins, data volume relative to baseline, off-hours activity, destination reputation, whether the program is signed.
-- About twenty rules each add or subtract a fixed weight (for example, `+35` for volume over 10× baseline, `−25` when multi-factor authentication passed).
-- The **risk score** is the sum of fired weights clamped to 0–100. **It is not a probability** and is not calibrated against real data; the interface says so.
-- Bands: under 40 → allow, 40–69 → investigate, 70+ → contain. **Confidence** reflects only how far the score sits from a band threshold.
-- NEXUS only sees telemetry. Business context such as change tickets, schedules and HR records is shown to the player as "context records" that NEXUS cannot read. That is why it raises a false positive on an approved month-end backup and misses an account takeover that passed MFA. These mistakes come out of the rules, not from a flag saying "be wrong here", and the test suite checks that they happen.
-
-### The Defender: a real k-nearest-neighbours classifier
-
-Mission 2 uses genuine machine learning, implemented from scratch in a few dozen lines:
-
-- **Features** (normalised 0–1): failed logins, unusual hour, destination risk, data volume, device unfamiliarity.
-- **Training data**: eight synthetic events. Their labels come **only from the player**. The ground truth is used afterwards to score labelling, never to train.
-- **Algorithm**: k-NN with *k* = 3 and Euclidean distance. "Training" stores the labelled examples (k-NN is a lazy learner); a prediction is the majority label among the three nearest examples.
-- **Evaluation**: six held-out events that are never shown during labelling and never used in training. The game reports accuracy, false positives, false negatives, the three neighbours behind each prediction, and flags 2-to-1 votes as uncertain.
-- **Data leakage**: players may flip labels and retrain to see the effect, but the score is locked to the first run, and the game explains why tuning against the test set would be cheating.
-
-With correct labels the model scores 6/6. Labelling everything "benign" drops it to 3/6, with three missed attacks. Mislabelling a single example such as T3 or T5 costs two predictions.
-
-## Educational concepts
-
-The end-of-game debrief connects each concept to what the player actually did in that run:
-
-- **Anomaly detection**: unusual is not the same as malicious.
-- **Machine learning**: models learn patterns from labelled examples; bad labels make bad models.
-- **False positives**: legitimate activity flagged as a threat (the scan, the backup, the payroll transfer).
-- **False negatives**: real attacks scored as safe (MFA fatigue, a slow leak to a "trusted" cloud provider).
-- **Human–AI collaboration**: AI scores signals at scale; people bring context and judgement.
-- **Incident response**: prioritise what spreads, contain precisely, keep the business running.
-
-All scenarios are fictional and safe. External addresses come from the documentation-reserved ranges in RFC 5737 (`192.0.2.0/24`, `198.51.100.0/24`, `203.0.113.0/24`), domains use the reserved `.example` TLD, and no code touches a real network.
+Wrong choices also cost network health (real threats left running) or disrupt the business (blocking safe work). Ranks: **Cyber Recruit** (below 700), **Threat Hunter** (700+), **Security Analyst** (1,200+), **Cyber Defender** (1,700+) and **Elite AI Guardian** (2,150+).
 
 ## Leaderboard limitations
 
-- Scores are stored in the browser's `localStorage`, **only on the device where the game was played**. They do not sync between machines, and clearing site data erases them.
-- Players can edit `localStorage` in the browser's developer tools, so scores are not tamper-proof. That is acceptable for a friendly booth competition.
-- Each run is saved once, keyed by a run ID, so repeated clicks or re-renders cannot create duplicates.
-- `js/leaderboard.js` takes a storage adapter with `load`, `save` and `clear`. A shared backend can be added by writing an adapter that talks to an API, without changing the UI.
+- Scores are saved in the browser on the computer where the game was played. They do not sync between computers, and clearing browser data erases them.
+- Each game is saved once, under an anonymous name. Players can add their own name on the results screen.
+- Scores can be edited with browser developer tools, so they are not tamper-proof. That's fine for a friendly booth competition.
+- `js/leaderboard.js` uses a small storage adapter (`load`, `save`, `clear`), so a shared online leaderboard could be added later without changing the screens.
 
 ## Testing
-
-Logic tests (no dependencies):
 
 ```bash
 node tests/logic.test.js
 ```
 
-They cover the rule engine (bands, clamping, and that NEXUS really does make the intended false positive and false negative), the classifier (perfect with correct labels, sensitive to wrong labels, no train/test overlap), scoring, ranks, nickname sanitisation, timer cleanup and leaderboard ordering and de-duplication.
+These tests check the NEXUS rules (including that its intended mistakes really happen), the classifier, scoring, ranks, name cleaning, timer cleanup and the leaderboard.
 
-During development the full game was also played end to end in headless Chromium (Playwright) at 375, 768, 1024 and 1440 px wide, checking every mission on correct and incorrect decision paths, the results screen, the leaderboard and the debrief for console errors and horizontal overflow.
+During development, the full game was also played automatically in a headless Chromium browser at 1366×768, 1440×900, 1920×1080 and 375×812. Those runs covered right and wrong answers, a network breach, restart, the idle reset, the leaderboard and opening the game from a file. They checked for script errors, horizontal overflow, and gameplay screens that need scrolling at desktop sizes.
 
 ## Future improvements
 
-- Optional shared leaderboard through a small backend adapter.
-- Arabic localisation with right-to-left layout.
-- More scenario packs (phishing triage, cloud misconfiguration, insider threat) and a randomised scenario order for replay variety.
-- A "booth mode" settings screen for staff (session length, idle timeout, leaderboard reset PIN).
-- A small decision-tree classifier alongside k-NN, to compare interpretable models.
+- An Arabic version with right-to-left layout.
+- More situation packs and a shuffled order for replays.
+- A staff settings screen (session length, idle time, leaderboard reset PIN).
+- An optional shared leaderboard.
 
 ## License
 
-Code is released under the MIT License (see `LICENSE`). Fonts in `assets/fonts` are licensed under the SIL Open Font License 1.1.
+MIT (see `LICENSE`).

@@ -1,10 +1,8 @@
 /*
  * CyberQuest — UI helpers
  *
- * DOM construction and the persistent parts of the console: status bar,
- * alert queue, event log, NEXUS feed, dialogs and toasts.
- * All text goes through textContent; nothing user- or scenario-supplied is
- * ever written with innerHTML.
+ * Safe DOM building (text only, never innerHTML with data), the header,
+ * the NEXUS guide bubble, feedback blocks, dialogs and toasts.
  */
 (function (CQ) {
   'use strict';
@@ -41,10 +39,10 @@
 
   function clear(node) { while (node && node.firstChild) node.removeChild(node.firstChild); }
 
-  function svgIcon(path, cls) {
+  function svgIcon(path, cls, viewBox) {
     var ns = 'http://www.w3.org/2000/svg';
     var s = document.createElementNS(ns, 'svg');
-    s.setAttribute('viewBox', '0 0 20 20');
+    s.setAttribute('viewBox', viewBox || '0 0 24 24');
     s.setAttribute('class', 'icon ' + (cls || ''));
     s.setAttribute('aria-hidden', 'true');
     s.setAttribute('focusable', 'false');
@@ -55,19 +53,21 @@
   }
 
   var ICON = {
-    soundOn: 'M3 7.5h3L10 4v12l-4-3.5H3zM13 7a4 4 0 0 1 0 6M15.5 4.5a7.5 7.5 0 0 1 0 11',
-    soundOff: 'M3 7.5h3L10 4v12l-4-3.5H3zM13 7.5l5 5M18 7.5l-5 5',
-    restart: 'M4 10a6 6 0 1 0 1.8-4.3M4 3.5v3h3',
-    check: 'M4 10.5l4 4 8-9',
-    cross: 'M5 5l10 10M15 5L5 15',
-    half: 'M4 10h12'
+    soundOn: 'M4 9h3.5L12 5v14l-4.5-4H4zM15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12',
+    soundOff: 'M4 9h3.5L12 5v14l-4.5-4H4zM16 9.5l5 5M21 9.5l-5 5',
+    check: 'M5 12.5l4.5 4.5L19 7.5',
+    cross: 'M6.5 6.5l11 11M17.5 6.5l-11 11',
+    half: 'M6 12h12',
+    clue: 'M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14zM20 20l-4-4',
+    login: 'M7 10V8a5 5 0 0 1 10 0v2M5 10h14v10H5zM12 14v2.5',
+    upload: 'M12 16V5M7.5 9.5 12 5l4.5 4.5M5 19h14',
+    shield: 'M12 3 4.5 6v5.5c0 4.7 3.2 8.2 7.5 9.5 4.3-1.3 7.5-4.8 7.5-9.5V6z',
+    clock: 'M12 4a8 8 0 1 0 0 16a8 8 0 1 0 0-16zM12 8v4.5l3 2'
   };
 
   function formatTime(ms) {
     var total = Math.max(0, Math.floor(ms / 1000));
-    var m = Math.floor(total / 60);
-    var s = total % 60;
-    return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+    return Math.floor(total / 60) + ':' + String(total % 60).padStart(2, '0');
   }
 
   function reducedMotion() {
@@ -75,7 +75,7 @@
   }
 
   /* ------------------------------------------------------------------ */
-  /* Announcer & toasts                                                   */
+  /* Announcer and toasts                                                 */
   /* ------------------------------------------------------------------ */
   function announce(text) {
     var a = $('#announcer');
@@ -94,175 +94,75 @@
   }
 
   /* ------------------------------------------------------------------ */
-  /* Status bar                                                           */
+  /* Header                                                               */
   /* ------------------------------------------------------------------ */
-  var statusbar = {
-    setMetrics: function (s) {
-      setMeter('#m-integrity', s.integrity, s.integrity < 30 ? 'critical' : s.integrity < 60 ? 'warn' : 'ok');
-      setMeter('#m-stability', s.stability, s.stability < 30 ? 'critical' : s.stability < 60 ? 'warn' : 'ok');
-      var lvl = Math.round(s.threat);
-      var label = CQ.game.threatLabel(lvl);
-      var wrap = $('#m-threat');
-      if (wrap) {
-        $('.metric-value', wrap).textContent = label;
-        var steps = Math.min(5, Math.floor(lvl / 20) + 1);
-        Array.prototype.forEach.call(wrap.querySelectorAll('.threat-seg'), function (seg, i) {
-          seg.classList.toggle('is-on', i < steps);
-        });
-        wrap.dataset.level = label.toLowerCase();
-        wrap.setAttribute('aria-label', 'Threat level ' + label + ', ' + lvl + ' out of 100');
-      }
+  var header = {
+    setMission: function (index, title) {
+      var label = $('#mission-label');
+      if (label) label.textContent = 'Mission ' + (index + 1) + ' of 4: ' + title;
+    },
+    // fraction of the whole game, 0..1
+    setProgress: function (fraction) {
+      var f = Math.max(0, Math.min(1, fraction));
+      var fill = $('#progress-fill');
+      if (fill) fill.style.transform = 'scaleX(' + f + ')';
+      var bar = $('#progress');
+      if (bar) bar.setAttribute('aria-valuenow', String(Math.round(f * 100)));
     },
     setScore: function (score, delta) {
-      var el = $('#c-score');
+      var el = $('#score-value');
       if (!el) return;
       el.textContent = String(score);
       if (delta) {
-        var host = el.parentNode;
+        var prev = el.parentNode.querySelector('.score-delta');
+        if (prev) prev.remove();
         var d = h('span', { class: 'score-delta ' + (delta > 0 ? 'is-gain' : 'is-loss'), 'aria-hidden': 'true' }, (delta > 0 ? '+' : '') + delta);
-        host.appendChild(d);
+        el.parentNode.appendChild(d);
         setTimeout(function () { d.remove(); }, 1300);
       }
-    },
-    setTime: function (ms) {
-      var el = $('#c-time');
-      if (el) el.textContent = formatTime(ms);
-    },
-    setMission: function (index, progress) {
-      var items = document.querySelectorAll('#mission-rail .mr-item');
-      Array.prototype.forEach.call(items, function (li, i) {
-        li.classList.toggle('is-active', i === index);
-        li.classList.toggle('is-done', i < index);
-        if (i === index) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current');
-        var p = li.querySelector('.mr-progress');
-        if (p) p.textContent = i === index ? (progress || '') : i < index ? 'Done' : '';
-      });
-    },
-    setProgress: function (text) {
-      var p = document.querySelector('#mission-rail .mr-item.is-active .mr-progress');
-      if (p) p.textContent = text;
     }
   };
 
-  function setMeter(sel, value, tone) {
-    var wrap = $(sel);
-    if (!wrap) return;
-    var v = Math.round(value);
-    $('.metric-value', wrap).textContent = String(v);
-    $('.metric-fill', wrap).style.transform = 'scaleX(' + (v / 100) + ')';
-    wrap.dataset.tone = tone;
-    var bar = $('.metric-bar', wrap);
-    if (bar) bar.setAttribute('aria-valuenow', String(v));
-  }
-
   /* ------------------------------------------------------------------ */
-  /* Queue and event log                                                  */
-  /* ------------------------------------------------------------------ */
-  /**
-   * items: [{ id, time, title, meta, status, tone, disabled, risk }]
-   */
-  function renderQueue(items, opts) {
-    var list = $('#queue-list');
-    var o = opts || {};
-    clear(list);
-    if (!items.length) {
-      list.appendChild(h('li', { class: 'queue-empty' }, o.emptyText || 'No open alerts.'));
-    }
-    items.forEach(function (item) {
-      var selected = o.selectedId === item.id;
-      var btn = h('button', {
-        type: 'button',
-        class: 'queue-item tone-' + (item.tone || 'open') + (selected ? ' is-selected' : ''),
-        disabled: item.disabled ? true : null,
-        aria: { pressed: selected ? 'true' : 'false' },
-        data: { id: item.id },
-        on: { click: function () { if (o.onSelect) o.onSelect(item.id); } }
-      },
-        h('span', { class: 'qi-top' },
-          h('span', { class: 'qi-time mono' }, item.time || ''),
-          item.risk != null ? h('span', { class: 'qi-risk mono', title: 'NEXUS risk score' }, 'Risk ' + item.risk) : null
-        ),
-        h('span', { class: 'qi-title' }, item.title),
-        item.meta ? h('span', { class: 'qi-meta mono' }, item.meta) : null,
-        h('span', { class: 'qi-status' }, item.status || 'Open')
-      );
-      list.appendChild(h('li', null, btn));
-    });
-    var count = $('#queue-count');
-    if (count) {
-      var open = items.filter(function (i) { return i.tone === 'open' || i.tone === 'active'; }).length;
-      count.textContent = items.length ? open + ' open' : '';
-    }
-  }
-
-  function log(text, tone, stamp) {
-    var list = $('#event-log');
-    if (!list) return;
-    var li = h('li', { class: 'log-item tone-' + (tone || 'neutral') },
-      h('span', { class: 'log-time mono' }, stamp || formatTime(CQ.app ? CQ.app.elapsed() : 0)),
-      h('span', { class: 'log-text' }, text));
-    list.insertBefore(li, list.firstChild);
-    while (list.children.length > 40) list.removeChild(list.lastChild);
-  }
-
-  function clearLog() { clear($('#event-log')); }
-
-  /* ------------------------------------------------------------------ */
-  /* NEXUS feed                                                           */
+  /* NEXUS guide: one short message at a time                             */
   /* ------------------------------------------------------------------ */
   var nexus = {
-    say: function (text, kind, extra) {
-      var feed = $('#nexus-feed');
-      if (!feed) return null;
-      var li = h('li', { class: 'nx-msg kind-' + (kind || 'info') },
-        h('span', { class: 'nx-meta mono' }, nexusKindLabel(kind) + '  ' + formatTime(CQ.app ? CQ.app.elapsed() : 0)),
-        h('p', { class: 'nx-text' }, text),
-        extra || null);
-      feed.appendChild(li);
-      while (feed.children.length > 30) feed.removeChild(feed.firstChild);
-      feed.scrollTop = feed.scrollHeight;
-      var latest = $('#nexus-latest');
-      if (latest) latest.textContent = text;
-      return li;
-    },
-    status: function (text, busy) {
-      var s = $('#nexus-status');
-      if (!s) return;
-      s.textContent = text;
-      s.classList.toggle('is-busy', !!busy);
-    },
-    clear: function () { clear($('#nexus-feed')); }
+    say: function (text, mood) {
+      var t = $('#guide-text');
+      var guide = $('#guide');
+      if (!t || !guide) return;
+      t.textContent = text;
+      guide.dataset.mood = mood || 'calm';
+      guide.classList.remove('is-new');
+      void guide.offsetWidth; // restart the small "new message" cue
+      guide.classList.add('is-new');
+    }
   };
 
-  function nexusKindLabel(kind) {
-    return { analysis: 'Analysis', hint: 'Hint', verdict: 'Review', warn: 'Warning', model: 'Defender model' }[kind] || 'NEXUS';
+  /* ------------------------------------------------------------------ */
+  /* Feedback after a decision                                            */
+  /* ------------------------------------------------------------------ */
+  var FEEDBACK = {
+    good: { title: 'Correct!', icon: ICON.check },
+    okay: { title: 'Good, but not the best choice', icon: ICON.half },
+    bad: { title: 'Not quite', icon: ICON.cross }
+  };
+
+  function toneForGrade(grade) {
+    return grade === 'best' ? 'good' : grade === 'acceptable' || grade === 'partial' ? 'okay' : 'bad';
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Risk gauge                                                           */
-  /* ------------------------------------------------------------------ */
-  function riskGauge(analysis, opts) {
-    var o = opts || {};
-    var t = CQ.ai.thresholds;
-    var tone = analysis.risk >= t.contain ? 'high' : analysis.risk >= t.investigate ? 'mid' : 'low';
-    var marker = h('span', { class: 'gauge-marker', style: 'left:' + analysis.risk + '%' });
-    var gauge = h('div', { class: 'gauge tone-' + tone + (o.compact ? ' is-compact' : '') },
-      h('div', { class: 'gauge-head' },
-        h('span', { class: 'gauge-label' }, o.label || 'NEXUS risk score'),
-        h('span', { class: 'gauge-value mono' }, String(analysis.risk), h('span', { class: 'gauge-max' }, '/100'))),
-      h('div', {
-        class: 'gauge-track', role: 'img',
-        'aria-label': 'Risk score ' + analysis.risk + ' out of 100. Investigate from ' + t.investigate + ', contain from ' + t.contain + '.'
-      },
-        h('span', { class: 'gauge-band band-low', style: 'width:' + t.investigate + '%' }),
-        h('span', { class: 'gauge-band band-mid', style: 'width:' + (t.contain - t.investigate) + '%' }),
-        h('span', { class: 'gauge-band band-high', style: 'width:' + (100 - t.contain) + '%' }),
-        marker),
-      o.compact ? null : h('div', { class: 'gauge-scale mono', 'aria-hidden': 'true' },
-        h('span', null, 'Allow'), h('span', null, 'Investigate'), h('span', null, 'Contain')),
-      o.compact ? null : h('p', { class: 'gauge-note' }, 'Sum of rule weights. Not a probability.'));
-    return gauge;
+  function feedback(tone, text, points, title) {
+    var f = FEEDBACK[tone] || FEEDBACK.okay;
+    return h('div', { class: 'feedback tone-' + tone, role: 'status' },
+      h('div', { class: 'feedback-head' },
+        h('span', { class: 'feedback-icon' }, svgIcon(f.icon)),
+        h('h3', { class: 'feedback-title' }, title || f.title),
+        points != null ? h('span', { class: 'feedback-points' }, signed(points) + ' points') : null),
+      h('p', { class: 'feedback-text' }, text));
   }
+
+  function signed(n) { return (n > 0 ? '+' : n < 0 ? '−' : '') + Math.abs(Math.round(n)); }
 
   /* ------------------------------------------------------------------ */
   /* Dialog                                                               */
@@ -288,8 +188,7 @@
   }
 
   /**
-   * openDialog({ title, kicker, body, actions:[{label, primary, onClick, keep}], dismissible, className })
-   * An action closes the dialog unless keep is true.
+   * openDialog({ title, body, actions:[{label, primary, danger, onClick, keep}], dismissible, className })
    */
   function openDialog(conf) {
     var overlay = $('#overlay');
@@ -301,21 +200,16 @@
     dialogState.dismissible = conf.dismissible !== false;
     clear(dlg);
     dlg.className = 'dialog ' + (conf.className || '');
-    var titleId = 'dialog-title';
-    if (conf.kicker) dlg.appendChild(h('p', { class: 'dialog-kicker mono' }, conf.kicker));
-    dlg.appendChild(h('h2', { id: titleId, class: 'dialog-title' }, conf.title));
+    dlg.appendChild(h('h2', { id: 'dialog-title', class: 'dialog-title' }, conf.title));
     if (conf.body) dlg.appendChild(h('div', { class: 'dialog-body' }, conf.body));
     if (conf.actions && conf.actions.length) {
-      var row = h('div', { class: 'dialog-actions' });
-      conf.actions.forEach(function (a) {
-        row.appendChild(h('button', {
+      dlg.appendChild(h('div', { class: 'dialog-actions' }, conf.actions.map(function (a) {
+        return h('button', {
           type: 'button',
           class: 'btn ' + (a.primary ? 'btn-primary' : a.danger ? 'btn-danger' : 'btn-secondary'),
-          'data-autofocus': a.autofocus ? 'true' : null,
           on: { click: function () { if (!a.keep) closeDialog(true); if (a.onClick) a.onClick(); } }
-        }, a.label));
-      });
-      dlg.appendChild(row);
+        }, a.label);
+      })));
     }
     if (dialogState.dismissible) {
       dlg.appendChild(h('button', {
@@ -323,15 +217,14 @@
         on: { click: function () { closeDialog(); } }
       }, svgIcon(ICON.cross)));
     }
-    dlg.setAttribute('aria-labelledby', titleId);
+    dlg.setAttribute('aria-labelledby', 'dialog-title');
     overlay.hidden = false;
     document.addEventListener('keydown', onDialogKey, true);
-    var target = dlg.querySelector('[data-autofocus="true"]') || dlg.querySelector('.btn-primary') || focusables(dlg)[0];
+    var target = dlg.querySelector('.btn-primary') || focusables(dlg)[0];
     setTimeout(function () { if (target) target.focus(); }, 30);
     return closeDialog;
   }
 
-  // silent = true: closed by an action, so don't fire onClose.
   function closeDialog(silent) {
     var overlay = $('#overlay');
     if (!overlay || overlay.hidden) return;
@@ -349,37 +242,10 @@
     return !!overlay && !overlay.hidden;
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Small builders reused by missions                                    */
-  /* ------------------------------------------------------------------ */
-  function kbd(key) { return h('kbd', { class: 'kbd', 'aria-hidden': 'true' }, key); }
-
-  function gradeLabel(grade) {
-    return { best: 'Correct call', acceptable: 'Acceptable', partial: 'Partly right', wrong: 'Wrong call', missed: 'Missed' }[grade] || grade;
+  function focus(root, sel) {
+    var n = (root || document).querySelector(sel);
+    if (n && n.focus) n.focus({ preventScroll: true });
   }
-
-  function gradeTone(grade) {
-    return { best: 'good', acceptable: 'good', partial: 'warn', wrong: 'bad', missed: 'bad' }[grade] || 'neutral';
-  }
-
-  function outcomeBlock(grade, points, text, effects) {
-    var fx = [];
-    if (effects) {
-      if (effects.integrity) fx.push('Integrity ' + signed(effects.integrity));
-      if (effects.stability) fx.push('Stability ' + signed(effects.stability));
-      if (effects.threat) fx.push('Threat ' + signed(effects.threat));
-    }
-    var tone = gradeTone(grade);
-    return h('div', { class: 'outcome tone-' + tone, role: 'status' },
-      h('div', { class: 'outcome-head' },
-        svgIcon(tone === 'good' ? ICON.check : tone === 'bad' ? ICON.cross : ICON.half, 'outcome-icon'),
-        h('span', { class: 'outcome-grade' }, gradeLabel(grade)),
-        h('span', { class: 'outcome-points mono' }, signed(points) + ' pts')),
-      h('p', { class: 'outcome-text' }, text),
-      fx.length ? h('p', { class: 'outcome-fx mono' }, fx.join('   ')) : null);
-  }
-
-  function signed(n) { return (n > 0 ? '+' : n < 0 ? '−' : '') + Math.abs(Math.round(n)); }
 
   CQ.ui = {
     $: $,
@@ -391,19 +257,14 @@
     reducedMotion: reducedMotion,
     announce: announce,
     toast: toast,
-    statusbar: statusbar,
-    renderQueue: renderQueue,
-    log: log,
-    clearLog: clearLog,
+    header: header,
     nexus: nexus,
-    riskGauge: riskGauge,
+    feedback: feedback,
+    toneForGrade: toneForGrade,
+    signed: signed,
     openDialog: openDialog,
     closeDialog: closeDialog,
     dialogOpen: dialogOpen,
-    kbd: kbd,
-    gradeLabel: gradeLabel,
-    gradeTone: gradeTone,
-    outcomeBlock: outcomeBlock,
-    signed: signed
+    focus: focus
   };
 })(window.CQ = window.CQ || {});

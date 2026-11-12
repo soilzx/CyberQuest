@@ -1,441 +1,180 @@
 /*
  * CyberQuest — foundations
- * Tokens, fonts, base typography and screen layouts.
- * Components live in components.css; motion in animations.css.
+ * Tokens, base type and the three screen layouts.
+ * Design rules: one task per screen, big readable text (18px body,
+ * never below 16px), one teal accent, generous space.
  */
 
-/* ------------------------------------------------------------------ */
-/* Fonts (self-hosted Latin subsets, SIL Open Font License)            */
-/* ------------------------------------------------------------------ */
-@font-face {
-  font-family: 'Space Grotesk';
-  font-style: normal;
-  font-weight: 300 700;
-  font-display: swap;
-  src: url('../assets/fonts/space-grotesk-var.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'IBM Plex Sans';
-  font-style: normal;
-  font-weight: 100 700;
-  font-display: swap;
-  src: url('../assets/fonts/ibm-plex-sans-var.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'IBM Plex Mono';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('../assets/fonts/ibm-plex-mono-400.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'IBM Plex Mono';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url('../assets/fonts/ibm-plex-mono-500.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'IBM Plex Mono';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url('../assets/fonts/ibm-plex-mono-600.woff2') format('woff2');
-}
-
-/* ------------------------------------------------------------------ */
-/* Tokens                                                               */
-/* ------------------------------------------------------------------ */
 :root {
   /* Surfaces */
-  --c-void: #0B1016;
-  --c-panel: #151D26;
-  --c-raised: #202B36;
-  --c-raised-2: #2A3744;
-  --c-line: #243140;
-  --c-line-strong: #34465A;
+  --bg: #0C1424;           /* deep navy */
+  --surface: #15203A;      /* panels */
+  --surface-2: #1D2B49;    /* buttons, cards inside panels */
+  --line: #2C3D60;
 
-  /* Ink */
-  --c-ink: #EAF1F5;
-  --c-ink-2: #A3B4C2;
-  --c-ink-3: #8799AA;
+  /* Text */
+  --text: #F4F7FB;
+  --text-2: #BAC6D9;
 
-  /* Signal: interaction and NEXUS identity only */
-  --c-signal: #36D6D0;
-  --c-signal-hover: #62E4DF;
-  --c-signal-ink: #04201F;
-  --c-signal-dim: rgba(54, 214, 208, 0.12);
+  /* The one accent: teal */
+  --accent: #2ED3C6;
+  --accent-hover: #63E2D8;
+  --accent-ink: #04211E;
+  --accent-soft: rgba(46, 211, 198, 0.12);
 
-  /* Status */
-  --c-amber: #E9AD52;
-  --c-amber-dim: rgba(233, 173, 82, 0.13);
-  --c-critical: #EF6A5B;     /* confirmed threats and real damage only */
-  --c-critical-dim: rgba(239, 106, 91, 0.13);
-  --c-secure: #5CC98A;       /* confirmed good outcomes only */
-  --c-secure-dim: rgba(92, 201, 138, 0.12);
+  /* Feedback colours, used only to show results */
+  --good: #4CC98D;
+  --good-soft: rgba(76, 201, 141, 0.14);
+  --bad: #F2705F;
+  --bad-soft: rgba(242, 112, 95, 0.14);
+  --warn: #F4B551;
+  --warn-soft: rgba(244, 181, 81, 0.15);
+  --on-bright: #10151F;    /* dark text on bright pills */
 
-  /* Type */
-  --f-display: 'Space Grotesk', 'Segoe UI', system-ui, -apple-system, sans-serif;
-  --f-body: 'IBM Plex Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
-  --f-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  --font: Arial, 'Helvetica Neue', Helvetica, sans-serif;
 
-  --t-2xs: 0.6875rem;  /* 11 */
-  --t-xs: 0.75rem;     /* 12 */
-  --t-sm: 0.8125rem;   /* 13 */
-  --t-base: 0.9375rem; /* 15 */
-  --t-md: 1.0625rem;   /* 17 */
-  --t-lg: 1.375rem;    /* 22 */
-  --t-xl: 1.75rem;     /* 28 */
-  --t-2xl: 2.25rem;    /* 36 */
-  --t-display: clamp(2.25rem, 1.2rem + 3.6vw, 4.25rem);
+  --fs-small: 1rem;        /* 16px: the smallest text anywhere */
+  --fs-body: 1.125rem;     /* 18px */
+  --fs-lead: 1.25rem;      /* 20px */
+  --fs-h3: 1.5rem;         /* 24px */
+  --fs-h2: 2rem;           /* 32px */
+  --fs-h1: clamp(2.25rem, 1.4rem + 2.6vw, 3.5rem);
 
-  --lh-tight: 1.08;
-  --lh-snug: 1.25;
-  --lh-body: 1.5;
-
-  /* Space (4px base) */
-  --s-1: 4px;
-  --s-2: 8px;
-  --s-3: 12px;
-  --s-4: 16px;
-  --s-5: 20px;
-  --s-6: 24px;
-  --s-8: 32px;
-  --s-10: 40px;
-  --s-12: 48px;
-
-  /* Radius: small for controls, larger only for floating layers */
-  --r-sm: 3px;
-  --r-md: 5px;
-  --r-lg: 8px;
-
-  --statusbar-h: 64px;
-  --tap: 44px;
+  --radius: 14px;
+  --radius-lg: 22px;
+  --tap: 52px;
 
   color-scheme: dark;
 }
 
-/* ------------------------------------------------------------------ */
-/* Base                                                                 */
-/* ------------------------------------------------------------------ */
-*,
-*::before,
-*::after { box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; }
 
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--c-void);
-  color: var(--c-ink);
-  font-family: var(--f-body);
-  font-size: var(--t-base);
-  line-height: var(--lh-body);
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: var(--fs-body);
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
 }
 
-h1, h2, h3, h4 {
-  margin: 0;
-  font-family: var(--f-display);
-  font-weight: 600;
-  line-height: var(--lh-snug);
-  letter-spacing: -0.01em;
-}
-
-p, ul, ol, dl, dd, figure { margin: 0; }
+h1, h2, h3, p, ul, ol, figure { margin: 0; }
 ul, ol { padding: 0; list-style: none; }
+h1, h2, h3 { line-height: 1.2; font-weight: 700; text-wrap: balance; }
 
-button, input, select, textarea { font: inherit; color: inherit; }
+button, input { font: inherit; color: inherit; }
 button { cursor: pointer; }
-
 [hidden] { display: none !important; }
 
-.mono {
-  font-family: var(--f-mono);
-  font-feature-settings: 'zero' 1, 'tnum' 1;
-  letter-spacing: 0;
-}
-
 :focus { outline: none; }
-/* Headings receive focus programmatically to move screen readers; no ring needed. */
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 [tabindex="-1"]:focus-visible { outline: none; }
-:focus-visible {
-  outline: 2px solid var(--c-signal);
-  outline-offset: 2px;
-}
-
-::selection { background: var(--c-signal); color: var(--c-signal-ink); }
 
 .sr-only {
   position: absolute !important;
-  width: 1px; height: 1px;
-  padding: 0; margin: -1px;
-  overflow: hidden; clip: rect(0 0 0 0);
-  white-space: nowrap; border: 0;
+  width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
 
-.skip-link {
-  position: absolute;
-  left: var(--s-4);
-  top: -60px;
-  z-index: 100;
-  padding: var(--s-2) var(--s-4);
-  background: var(--c-signal);
-  color: var(--c-signal-ink);
-  font-family: var(--f-display);
-  font-weight: 600;
-  border-radius: var(--r-sm);
-}
-.skip-link:focus { top: var(--s-2); }
-body[data-screen="intro"] .skip-link,
-body[data-screen="results"] .skip-link { display: none; }
+.noscript { padding: 32px; font-size: var(--fs-lead); }
 
-.noscript {
-  padding: var(--s-8);
-  font-family: var(--f-display);
-  font-size: var(--t-lg);
+.brand-mark {
+  width: 32px; height: 32px; flex: none;
+  fill: none; stroke: var(--accent); stroke-width: 2.4;
+  stroke-linecap: round; stroke-linejoin: round;
 }
-
-.app { min-height: 100vh; }
+.brand-name { font-size: var(--fs-lead); font-weight: 700; }
 
 /* ------------------------------------------------------------------ */
-/* Intro screen                                                         */
+/* Start screen                                                         */
 /* ------------------------------------------------------------------ */
 .screen-intro {
   min-height: 100vh;
-  min-height: 100dvh;
   display: grid;
   grid-template-rows: auto 1fr auto;
-  padding: var(--s-6) clamp(var(--s-4), 4vw, var(--s-12));
-  gap: var(--s-6);
+  gap: 24px;
+  padding: 28px clamp(16px, 5vw, 64px);
+  max-width: 1320px;
+  margin: 0 auto;
 }
 
-.intro-brand {
-  display: flex;
-  align-items: center;
-  gap: var(--s-3);
-}
-
-.brand-mark {
-  width: 26px;
-  height: 26px;
-  flex: none;
-  fill: none;
-  stroke: var(--c-signal);
-  stroke-width: 1.8;
-  stroke-linecap: round;
-}
-
-.brand-name {
-  font-family: var(--f-display);
-  font-weight: 600;
-  font-size: var(--t-md);
-  letter-spacing: -0.01em;
-}
-
-.brand-sub {
-  color: var(--c-ink-2);
-  font-size: var(--t-sm);
-  padding-left: var(--s-3);
-  border-left: 1px solid var(--c-line-strong);
-}
+.intro-brand { display: flex; align-items: center; gap: 12px; }
 
 .intro-body {
   display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-  gap: clamp(var(--s-6), 4vw, 72px);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(32px, 5vw, 80px);
   align-items: center;
 }
 
-.intro-copy { max-width: 560px; }
+.intro-kicker { color: var(--accent); font-weight: 700; font-size: var(--fs-body); margin-bottom: 14px; }
+.intro-title { font-size: var(--fs-h1); line-height: 1.1; letter-spacing: -0.01em; max-width: 15ch; }
+.intro-sub { margin-top: 18px; font-size: var(--fs-h3); color: var(--text-2); max-width: 26ch; }
+.btn-start { margin-top: 36px; }
+.intro-meta { margin-top: 16px; color: var(--text-2); font-size: var(--fs-small); }
+.intro-copy .btn-link { margin-top: 8px; margin-left: -12px; }
 
-.alert-flag {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s-3);
-  margin-bottom: var(--s-5);
-  padding: 6px var(--s-3) 6px var(--s-2);
-  border: 1px solid rgba(233, 173, 82, 0.45);
-  border-radius: var(--r-sm);
-  color: var(--c-amber);
-  font-family: var(--f-display);
-  font-weight: 600;
-  font-size: var(--t-sm);
-  letter-spacing: 0.12em;
+.intro-visual {
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
 }
+.intro-visual .scene-host { max-width: 560px; margin: 0 auto; width: 100%; }
 
-.alert-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--c-amber);
-}
-
-.intro-title {
-  font-size: var(--t-display);
-  line-height: 1.02;
-  letter-spacing: -0.03em;
-  max-width: 13ch;
-  text-wrap: balance;
-}
-
-.intro-mission {
-  margin-top: var(--s-6);
-  font-family: var(--f-display);
-  font-size: var(--t-lg);
-  font-weight: 500;
-  letter-spacing: -0.01em;
-}
-
-.intro-ai {
-  margin-top: var(--s-2);
-  color: var(--c-ink-2);
-  font-size: var(--t-md);
-  max-width: 44ch;
-}
-
-.intro-form { margin-top: var(--s-8); }
-
-.intro-row {
-  display: flex;
-  gap: var(--s-3);
-  margin-top: var(--s-2);
-}
-.intro-row .field-input { flex: 1 1 220px; min-width: 0; }
-.intro-row .btn { flex: none; }
-
-.intro-secondary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s-2);
-  margin-top: var(--s-5);
-  margin-left: calc(-1 * var(--s-3));
-}
-
-.intro-map {
-  position: relative;
-  border: 1px solid var(--c-line);
-  border-radius: var(--r-md);
-  background-color: var(--c-panel);
-  background-image: radial-gradient(circle at 1px 1px, rgba(163, 180, 194, 0.09) 1px, transparent 0);
-  background-size: 22px 22px;
-  padding: var(--s-4);
-}
-.intro-map .map-host { aspect-ratio: 1040 / 500; width: 100%; }
-.intro-map-caption {
-  margin-top: var(--s-3);
-  color: var(--c-ink-3);
-  font-size: var(--t-sm);
-}
-
-.intro-foot {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: var(--s-2) var(--s-6);
-  padding-top: var(--s-4);
-  border-top: 1px solid var(--c-line);
-  color: var(--c-ink-3);
-  font-size: var(--t-sm);
-}
+.intro-foot { color: var(--text-2); font-size: var(--fs-small); text-align: center; }
 
 /* ------------------------------------------------------------------ */
-/* Game screen: status bar + three-column console                      */
+/* Play screen                                                          */
 /* ------------------------------------------------------------------ */
-.screen-game {
+.screen-play {
   height: 100vh;
   height: 100dvh;
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
-  overflow: hidden;
+  grid-template-columns: minmax(0, 1fr);
 }
 
-.statusbar {
+.topbar {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: var(--s-6);
-  min-height: var(--statusbar-h);
-  padding: var(--s-2) var(--s-5);
-  background: var(--c-panel);
-  border-bottom: 1px solid var(--c-line);
+  gap: clamp(16px, 3vw, 40px);
+  min-height: 76px;
+  padding: 10px clamp(16px, 3vw, 40px);
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
 }
 
-.sb-brand {
-  display: flex;
-  align-items: center;
-  gap: var(--s-3);
-  min-width: 0;
-}
-.sb-brand-text { display: grid; line-height: 1.2; min-width: 0; }
-.sb-agent {
-  color: var(--c-ink-2);
-  font-size: var(--t-xs);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 14ch;
-}
+.brand { display: flex; align-items: center; gap: 10px; }
 
-.console {
+.play {
+  width: 100%;
+  max-width: 1240px;
+  margin: 0 auto;
+  min-height: 0;
   display: grid;
-  grid-template-columns: minmax(240px, 290px) minmax(0, 1fr) minmax(280px, 340px);
-  min-height: 0;
-  background: var(--c-line);
-  gap: 1px;
-}
-
-.panel {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  background: var(--c-panel);
+  /* The stage grows with the window but stops at a comfortable size on big screens. */
+  grid-template-rows: auto minmax(0, 760px);
+  align-content: center;
+  gap: 16px;
+  padding: 18px clamp(16px, 3vw, 40px) 24px;
 }
 
 .stage {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  min-height: 0;
-  min-width: 0;
-  background: var(--c-void);
-}
-
-.stage-map {
-  padding: var(--s-3) var(--s-5) var(--s-2);
-  border-bottom: 1px solid var(--c-line);
-  background-color: var(--c-void);
-  background-image: radial-gradient(circle at 1px 1px, rgba(163, 180, 194, 0.07) 1px, transparent 0);
-  background-size: 22px 22px;
-}
-
-.stage-map-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--s-4);
-  margin-bottom: var(--s-1);
-}
-
-.stage-map .map-host {
-  height: clamp(200px, 34vh, 400px);
-  transition: height 0.3s ease;
-}
-
-/* Mission 2 is a lab: the map steps aside for the training data. */
-body[data-mission="1"] .stage-map { display: none; }
-body[data-mission="1"] .stage { grid-template-rows: minmax(0, 1fr); }
-
-.workspace {
-  container: ws / inline-size;
   min-height: 0;
   overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: var(--s-5) clamp(var(--s-4), 2vw, var(--s-8)) var(--s-8);
-  scroll-padding: var(--s-4);
+  padding: clamp(20px, 3vw, 36px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
 }
 
 /* ------------------------------------------------------------------ */
@@ -443,104 +182,53 @@ body[data-mission="1"] .stage { grid-template-rows: minmax(0, 1fr); }
 /* ------------------------------------------------------------------ */
 .screen-results {
   min-height: 100vh;
-  padding: var(--s-8) clamp(var(--s-4), 4vw, var(--s-12)) var(--s-12);
+  padding: 36px clamp(16px, 4vw, 48px) 48px;
 }
-
-.results-wrap {
-  max-width: 1180px;
-  margin: 0 auto;
+@media (max-height: 800px) and (min-width: 901px) {
+  .screen-results { padding-top: 22px; padding-bottom: 22px; }
 }
 
 /* ------------------------------------------------------------------ */
-/* Responsive layout                                                    */
+/* Smaller screens                                                      */
 /* ------------------------------------------------------------------ */
-
-/* Short laptop screens: give the decision area more height. */
-@media (max-height: 820px) and (min-width: 901px) {
-  .stage-map .map-host { height: clamp(180px, 29vh, 300px); }
-  .stage-map { padding-top: var(--s-2); }
-  .hud { margin-bottom: var(--s-4); padding-bottom: var(--s-3); }
-  .hud-time { font-size: var(--t-xl); }
-}
-
-/* Laptop: brand text and agent name tighten up. */
-@media (max-width: 1320px) {
-  .statusbar { gap: var(--s-4); }
-  .sb-agent { display: none; }
-  .console { grid-template-columns: minmax(220px, 260px) minmax(0, 1fr) minmax(260px, 300px); }
-}
-
-/* Tablet and small laptop: queue and NEXUS share the right column. */
-@media (max-width: 1100px) {
-  .statusbar {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    grid-template-areas:
-      "brand counters controls"
-      "rail rail rail"
-      "metrics metrics metrics";
-    row-gap: var(--s-2);
-    padding: var(--s-2) var(--s-4);
-  }
-  .sb-brand { grid-area: brand; }
-  .mission-rail-wrap { grid-area: rail; }
-  .sb-metrics { grid-area: metrics; }
-  .sb-counters { grid-area: counters; justify-self: end; }
-  .sb-controls { grid-area: controls; }
-
-  .console {
-    grid-template-columns: minmax(0, 1fr) minmax(260px, 300px);
-    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-areas:
-      "stage queue"
-      "stage nexus";
-  }
-  .stage { grid-area: stage; }
-  .panel-queue { grid-area: queue; }
-  .panel-nexus { grid-area: nexus; }
+@media (max-width: 1000px) {
   .intro-body { grid-template-columns: minmax(0, 1fr); }
-  .intro-copy { max-width: 640px; }
+  .intro-title { max-width: 20ch; }
 }
 
-/* Tablet portrait and phone: one scrolling column. Decisions first, then context. */
-@media (max-width: 900px) {
-  .screen-game {
-    height: auto;
-    min-height: 100vh;
-    overflow: visible;
-    grid-template-rows: auto auto;
-  }
-  .statusbar { gap: var(--s-2); }
-  .sb-brand .brand-name { display: none; }
-  .console {
-    display: flex;
-    flex-direction: column;
-    background: var(--c-void);
-    gap: 0;
-  }
-  .console > * { min-width: 0; max-width: 100%; }
-  /* Decision first, then the map that shows its consequences. */
-  .stage { display: contents; }
-  .panel-queue { order: 1; border-bottom: 1px solid var(--c-line); }
-  .workspace { order: 2; }
-  .stage-map { order: 3; border-top: 1px solid var(--c-line); padding: var(--s-3); }
-  .panel-nexus { order: 4; border-top: 1px solid var(--c-line); }
-  .stage-map .map-host { height: auto; aspect-ratio: 1040 / 500; }
-  .workspace { overflow: visible; padding: var(--s-4) var(--s-4) var(--s-8); }
-
+/* Large booth screens (e.g. 1920 × 1080): scale everything up so it reads from a step back. */
+@media (min-width: 1700px) and (min-height: 1000px) {
+  html { font-size: 118.75%; }
+  .play { max-width: 1480px; grid-template-rows: auto minmax(0, 860px); }
+  .stage-visual .scene { max-height: 440px; }
+  .intro-visual .scene-host, .screen-intro { max-width: 1560px; }
 }
 
-/* Phone */
-@media (max-width: 760px) {
-  :root { --statusbar-h: auto; }
+/* Short desktop screens (e.g. 1366 × 768): tighten vertical spacing. */
+@media (max-height: 800px) and (min-width: 801px) {
+  .topbar { min-height: 66px; padding-block: 8px; }
+  .play { padding-top: 14px; padding-bottom: 16px; gap: 12px; }
+  .screen-intro { gap: 16px; padding-block: 20px; }
+  .btn-start { margin-top: 28px; }
+}
 
-  .screen-intro { padding: var(--s-4); gap: var(--s-5); }
-  .brand-sub { display: none; }
-  .intro-row { flex-direction: column; }
-  .intro-row .btn { width: 100%; }
-  .intro-row .field-input { flex: none; width: 100%; }
-  .intro-map { padding: var(--s-2); }
-  .intro-map .map-host { aspect-ratio: 400 / 820; }
+/* Tablets and phones: let the page scroll instead of fitting one screen. */
+@media (max-width: 800px) {
+  .screen-play { height: auto; min-height: 100vh; }
+  .stage { overflow: visible; }
+  .topbar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "brand score controls" "journey journey journey";
+    row-gap: 10px;
+  }
+  .brand { grid-area: brand; }
+  .journey { grid-area: journey; }
+  .score { grid-area: score; justify-self: end; }
+  .topbar-controls { grid-area: controls; }
+  .btn-start { width: 100%; }
+}
 
-  .stage-map .map-host { aspect-ratio: 400 / 820; }
-  .screen-results { padding: var(--s-5) var(--s-4) var(--s-10); }
+@media (max-width: 480px) {
+  .brand .brand-name { display: none; }
+  .screen-intro { padding: 20px 16px; }
 }

@@ -46,8 +46,19 @@ test('mission 3 contains both AI false positives and false negatives', () => {
 test('mission 3 recommendations are never "investigate" (the choice is binary)', () => {
   S.mission3.forEach(it => assert.notStrictEqual(ai.analyze(it.telemetry).band, 'investigate', it.id));
 });
-test('mission 1 has a high-scoring false positive', () => {
-  assert.ok(S.mission1.some(e => e.truth === 'benign' && ai.analyze(e.telemetry).risk >= 70));
+test('mission 1 mixes safe and suspicious situations', () => {
+  const answers = S.mission1.map(m => m.answer);
+  assert.ok(answers.includes('safe') && answers.includes('suspicious'));
+  S.mission1.forEach(m => assert.ok(m.outcomes.safe && m.outcomes.suspicious && m.clue, m.id));
+});
+test('NEXUS is wrong about the cloud leak in mission 4 and right about the rest', () => {
+  S.mission4.incidents.forEach(it => {
+    const band = ai.analyze(it.telemetry).band;
+    const pick = it.options.find(o => o.band === band);
+    assert.ok(pick, it.id + ' has an option NEXUS can suggest');
+    if (it.id === 'm4-leak') assert.strictEqual(pick.grade, 'wrong');
+    else assert.strictEqual(pick.grade, 'best', it.id);
+  });
 });
 test('every mission 4 incident has a best option and at least one wrong option', () => {
   S.mission4.incidents.forEach(it => {
@@ -138,9 +149,10 @@ test('efficiency bonus is full at par and zero at twice par', () => {
 });
 test('ranks are deterministic and ordered', () => {
   assert.strictEqual(G.rankFor(0).name, 'Cyber Recruit');
-  assert.strictEqual(G.rankFor(800).name, 'Threat Hunter');
-  assert.strictEqual(G.rankFor(1799).name, 'Security Analyst');
-  assert.strictEqual(G.rankFor(1800).name, 'Cyber Defender');
+  assert.strictEqual(G.rankFor(700).name, 'Threat Hunter');
+  assert.strictEqual(G.rankFor(1699).name, 'Security Analyst');
+  assert.strictEqual(G.rankFor(1700).name, 'Cyber Defender');
+  assert.strictEqual(G.rankFor(2149).name, 'Cyber Defender');
   assert.strictEqual(G.rankFor(5000).name, 'Elite AI Guardian');
 });
 test('finish is idempotent', () => {
@@ -180,6 +192,15 @@ test('top list is capped at ten', () => {
   for (let i = 0; i < 14; i++) b.submit(run('r' + i, i * 10, 1000));
   assert.strictEqual(b.top().length, 10);
   assert.strictEqual(b.submit(run('r0', 0, 1000)).position, 0);
+});
+test('a saved run can be renamed after the game', () => {
+  const b = LB.create(LB.memoryAdapter());
+  b.submit(run('r1', 900, 200000));
+  const r = b.rename('r1', 'Noura');
+  assert.ok(r.renamed);
+  assert.strictEqual(b.top()[0].nickname, 'Noura');
+  assert.strictEqual(b.count(), 1);
+  assert.strictEqual(b.rename('missing', 'X').renamed, false);
 });
 test('corrupt stored data is ignored, not fatal', () => {
   const bad = { load: () => [{ nickname: 1 }, null, { nickname: 'ok', score: 5, timeMs: 1, timestamp: 1, rank: 'x', runId: 'z' }], save: () => true, clear: () => true };
