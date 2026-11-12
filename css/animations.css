@@ -1,0 +1,80 @@
+/*
+ * CyberQuest — motion
+ *
+ * Motion is reserved for things that changed:
+ *   - the intro alert flag pulses twice, then holds
+ *   - devices with an open alert carry a slow marker pulse
+ *   - new NEXUS messages, outcomes and log entries settle in
+ *   - score deltas rise off the counter
+ *   - NEXUS shows activity while the model trains
+ * Ambient packets are driven from JavaScript and are switched off for
+ * reduced-motion users there.
+ */
+
+@keyframes cq-blink-twice {
+  0%, 40%, 80%, 100% { opacity: 1; }
+  20%, 60% { opacity: 0.15; }
+}
+
+@keyframes cq-mark-pulse {
+  0%, 100% { r: 5; opacity: 1; }
+  50% { r: 7; opacity: 0.55; }
+}
+
+@keyframes cq-settle {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes cq-rise {
+  0% { opacity: 0; transform: translateY(2px); }
+  15% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-18px); }
+}
+
+@keyframes cq-busy {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+@keyframes cq-reveal {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.alert-dot { animation: cq-blink-twice 1.6s ease-in-out 0.3s 1 both; }
+
+.node.is-marked .node-mark { animation: cq-mark-pulse 1.8s ease-in-out infinite; }
+
+.nx-msg:last-child,
+.log-item:first-child { animation: cq-settle 0.28s ease-out both; }
+
+.outcome { animation: cq-settle 0.3s ease-out both; }
+.case-context.is-open { animation: cq-reveal 0.25s ease-out both; }
+
+.score-delta { animation: cq-rise 1.2s ease-out forwards; }
+
+.nexus-status.is-busy::before { animation: cq-busy 0.6s ease-in-out infinite; }
+
+.pred { animation: cq-settle 0.3s ease-out both; }
+.pred:nth-child(2) { animation-delay: 0.06s; }
+.pred:nth-child(3) { animation-delay: 0.12s; }
+.pred:nth-child(4) { animation-delay: 0.18s; }
+.pred:nth-child(5) { animation-delay: 0.24s; }
+.pred:nth-child(6) { animation-delay: 0.30s; }
+
+.overlay:not([hidden]) .dialog { animation: cq-settle 0.22s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .node.is-marked .node-mark { animation: none; }
+  .score-delta { display: none; }
+}
