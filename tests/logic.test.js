@@ -10,8 +10,8 @@
 const path = require('path');
 const assert = require('assert');
 
-['scenarios.js', 'ai-engine.js', 'game.js', 'leaderboard.js'].forEach(f => require(path.join(__dirname, '..', 'js', f)));
-const { scenarios: S, ai, game: G, leaderboard: LB } = globalThis.CQ;
+['i18n.js', 'scenarios.js', 'ai-engine.js', 'game.js', 'leaderboard.js'].forEach(f => require(path.join(__dirname, '..', 'js', f)));
+const { scenarios: S, ai, game: G, leaderboard: LB, i18n } = globalThis.CQ;
 
 let passed = 0;
 const failures = [];
@@ -46,10 +46,14 @@ test('mission 3 contains both AI false positives and false negatives', () => {
 test('mission 3 recommendations are never "investigate" (the choice is binary)', () => {
   S.mission3.forEach(it => assert.notStrictEqual(ai.analyze(it.telemetry).band, 'investigate', it.id));
 });
-test('mission 1 mixes safe and suspicious situations', () => {
-  const answers = S.mission1.map(m => m.answer);
-  assert.ok(answers.includes('safe') && answers.includes('suspicious'));
-  S.mission1.forEach(m => assert.ok(m.outcomes.safe && m.outcomes.suspicious && m.clue, m.id));
+test('every mission 1 situation has clues, a question and 2-3 graded choices with feedback', () => {
+  S.mission1.forEach(m => {
+    assert.ok(m.situation && m.question && m.clues.length >= 1, m.id);
+    assert.ok(m.choices.length >= 2 && m.choices.length <= 3, m.id);
+    assert.strictEqual(m.choices.filter(c => c.grade === 'best').length, 1, m.id + ' has exactly one best answer');
+    m.choices.forEach(c => assert.ok(c.label && c.feedback, m.id + '/' + c.id));
+  });
+  assert.ok(S.mission1.some(m => m.truth === 'benign') && S.mission1.some(m => m.truth === 'malicious'));
 });
 test('NEXUS is wrong about the cloud leak in mission 4 and right about the rest', () => {
   S.mission4.incidents.forEach(it => {
@@ -65,6 +69,42 @@ test('every mission 4 incident has a best option and at least one wrong option',
     assert.ok(it.options.some(o => o.grade === 'best'), it.id);
     assert.ok(it.options.some(o => o.grade === 'wrong'), it.id);
   });
+});
+
+console.log('Languages');
+test('every interface string exists in English and Arabic', () => {
+  const en = Object.keys(i18n.strings.en), ar = Object.keys(i18n.strings.ar);
+  assert.deepStrictEqual(en.filter(k => !ar.includes(k)), [], 'missing in Arabic');
+  assert.deepStrictEqual(ar.filter(k => !en.includes(k)), [], 'missing in English');
+});
+test('placeholders match between languages', () => {
+  const ph = str => (typeof str === 'string' ? (str.match(/\{\w+\}/g) || []).sort() : []);
+  Object.keys(i18n.strings.en).forEach(k => assert.deepStrictEqual(ph(i18n.strings.ar[k]), ph(i18n.strings.en[k]), k));
+});
+test('every scenario text has both languages and no stray English sentences', () => {
+  const problems = [];
+  (function walk(v, where) {
+    if (Array.isArray(v)) return v.forEach((x, i) => walk(x, where + '[' + i + ']'));
+    if (v && typeof v === 'object') {
+      if ('en' in v || 'ar' in v) {
+        if (!v.en || !v.ar) problems.push(where + ' is missing a language');
+        if (v.ar && /[A-Za-z]{4,}/.test(v.ar.replace(/[\w.-]+\.example|NEXUS|Windows/g, ''))) problems.push(where + ' has English inside the Arabic');
+        return;
+      }
+      return Object.keys(v).forEach(k => walk(v[k], where + '.' + k));
+    }
+    if (typeof v === 'string' && / [a-z]+ [a-z]+/i.test(v) && !where.endsWith('.address')) problems.push(where + ' is untranslated: ' + v);
+  })(S, 'scenarios');
+  assert.deepStrictEqual(problems, []);
+});
+test('switching language changes the text', () => {
+  assert.strictEqual(i18n.t('intro.start'), 'Start Game');
+  i18n.set('ar');
+  assert.strictEqual(i18n.t('intro.start'), 'ابدأ اللعبة');
+  assert.strictEqual(i18n.pick(S.missions[0].title), 'اكتشف التهديد');
+  assert.strictEqual(i18n.t('points', { n: 5 }), '5 نقاط');
+  i18n.set('en');
+  assert.strictEqual(i18n.pick(S.missions[0].title), 'Spot the Threat');
 });
 
 console.log('k-nearest neighbours');

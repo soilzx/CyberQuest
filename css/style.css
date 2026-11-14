@@ -5,6 +5,56 @@
  * never below 16px), one teal accent, generous space.
  */
 
+/* Arabic font (Tajawal, SIL Open Font License), self-hosted so it works offline. */
+@font-face {
+  font-family: 'Tajawal';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../assets/fonts/tajawal-400-arabic.woff2') format('woff2');
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
+}
+@font-face {
+  font-family: 'Tajawal';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../assets/fonts/tajawal-400-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Tajawal';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../assets/fonts/tajawal-500-arabic.woff2') format('woff2');
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
+}
+@font-face {
+  font-family: 'Tajawal';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../assets/fonts/tajawal-500-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Tajawal';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../assets/fonts/tajawal-700-arabic.woff2') format('woff2');
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
+}
+@font-face {
+  font-family: 'Tajawal';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../assets/fonts/tajawal-700-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 :root {
   /* Surfaces */
   --bg: #0C1424;           /* deep navy */
@@ -40,12 +90,25 @@
   --fs-h2: 2rem;           /* 32px */
   --fs-h1: clamp(2.25rem, 1.4rem + 2.6vw, 3.5rem);
 
+  --origin-start: left center;  /* bars grow from the reading start */
+
   --radius: 14px;
   --radius-lg: 22px;
   --tap: 52px;
 
   color-scheme: dark;
 }
+
+/* Arabic: Tajawal, slightly larger sizes (its letters run small), roomier lines, right-to-left. */
+:root[lang="ar"] {
+  --font: 'Tajawal', Arial, 'Helvetica Neue', sans-serif;
+  --fs-small: 1.0625rem;
+  --fs-body: 1.1875rem;
+  --fs-lead: 1.3125rem;
+  --origin-start: right center;
+}
+:root[lang="ar"] body { line-height: 1.65; }
+:root[lang="ar"] h1, :root[lang="ar"] h2, :root[lang="ar"] h3 { line-height: 1.35; letter-spacing: 0; }
 
 *, *::before, *::after { box-sizing: border-box; }
 
@@ -117,7 +180,7 @@ button { cursor: pointer; }
 .intro-sub { margin-top: 18px; font-size: var(--fs-h3); color: var(--text-2); max-width: 26ch; }
 .btn-start { margin-top: 36px; }
 .intro-meta { margin-top: 16px; color: var(--text-2); font-size: var(--fs-small); }
-.intro-copy .btn-link { margin-top: 8px; margin-left: -12px; }
+.intro-copy .btn-link { margin-top: 8px; margin-inline-start: -12px; }
 
 .intro-visual {
   display: grid;
@@ -208,8 +271,12 @@ button { cursor: pointer; }
 @media (max-height: 800px) and (min-width: 801px) {
   .topbar { min-height: 66px; padding-block: 8px; }
   .play { padding-top: 14px; padding-bottom: 16px; gap: 12px; }
-  .screen-intro { gap: 16px; padding-block: 20px; }
-  .btn-start { margin-top: 28px; }
+  .screen-intro { gap: 12px; padding-block: 16px; }
+  .intro-title { font-size: clamp(2.25rem, 1.2rem + 2.2vw, 3rem); }
+  .intro-sub { margin-top: 12px; }
+  .btn-start { margin-top: 22px; }
+  .intro-meta { margin-top: 10px; }
+  .intro-visual { padding: 18px; }
 }
 
 /* Tablets and phones: let the page scroll instead of fitting one screen. */

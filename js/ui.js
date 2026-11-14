@@ -99,7 +99,7 @@
   var header = {
     setMission: function (index, title) {
       var label = $('#mission-label');
-      if (label) label.textContent = 'Mission ' + (index + 1) + ' of 4: ' + title;
+      if (label) label.textContent = CQ.i18n.t('header.mission', { n: index + 1, title: title });
     },
     // fraction of the whole game, 0..1
     setProgress: function (fraction) {
@@ -126,26 +126,36 @@
   /* ------------------------------------------------------------------ */
   /* NEXUS guide: one short message at a time                             */
   /* ------------------------------------------------------------------ */
+  // NEXUS speaks with translation keys, so its last message can be repeated
+  // in the other language after a switch.
+  var nexusLast = null;
   var nexus = {
-    say: function (text, mood) {
-      var t = $('#guide-text');
+    say: function (key, vars, mood) {
+      nexusLast = { key: key, vars: vars || null, mood: mood || 'calm' };
+      nexus.refresh(true);
+    },
+    refresh: function (animate) {
+      var text = $('#guide-text');
       var guide = $('#guide');
-      if (!t || !guide) return;
-      t.textContent = text;
-      guide.dataset.mood = mood || 'calm';
-      guide.classList.remove('is-new');
-      void guide.offsetWidth; // restart the small "new message" cue
-      guide.classList.add('is-new');
-    }
+      if (!text || !guide || !nexusLast) return;
+      text.textContent = CQ.i18n.t(nexusLast.key, nexusLast.vars);
+      guide.dataset.mood = nexusLast.mood;
+      if (animate) {
+        guide.classList.remove('is-new');
+        void guide.offsetWidth; // restart the small "new message" cue
+        guide.classList.add('is-new');
+      }
+    },
+    clear: function () { nexusLast = null; var text = $('#guide-text'); if (text) text.textContent = ''; }
   };
 
   /* ------------------------------------------------------------------ */
   /* Feedback after a decision                                            */
   /* ------------------------------------------------------------------ */
   var FEEDBACK = {
-    good: { title: 'Correct!', icon: ICON.check },
-    okay: { title: 'Good, but not the best choice', icon: ICON.half },
-    bad: { title: 'Not quite', icon: ICON.cross }
+    good: { title: 'fb.good', icon: ICON.check },
+    okay: { title: 'fb.okay', icon: ICON.half },
+    bad: { title: 'fb.bad', icon: ICON.cross }
   };
 
   function toneForGrade(grade) {
@@ -157,8 +167,8 @@
     return h('div', { class: 'feedback tone-' + tone, role: 'status' },
       h('div', { class: 'feedback-head' },
         h('span', { class: 'feedback-icon' }, svgIcon(f.icon)),
-        h('h3', { class: 'feedback-title' }, title || f.title),
-        points != null ? h('span', { class: 'feedback-points' }, signed(points) + ' points') : null),
+        h('h3', { class: 'feedback-title' }, title || CQ.i18n.t(f.title)),
+        points != null ? h('span', { class: 'feedback-points' }, CQ.i18n.t('pointsSigned', { n: Math.round(points) })) : null),
       h('p', { class: 'feedback-text' }, text));
   }
 
@@ -213,7 +223,7 @@
     }
     if (dialogState.dismissible) {
       dlg.appendChild(h('button', {
-        type: 'button', class: 'dialog-close', aria: { label: 'Close' },
+        type: 'button', class: 'dialog-close', aria: { label: CQ.i18n.t('dlg.close') },
         on: { click: function () { closeDialog(); } }
       }, svgIcon(ICON.cross)));
     }

@@ -74,7 +74,20 @@
     failure: function (t) {
       [392, 330, 262].forEach(function (f, i) { tone(f, t + i * 0.16, 0.3, { type: 'sawtooth', gain: 0.04, cutoff: 900 }); });
     },
-    tick: function (t) { tone(1760, t, 0.025, { type: 'square', gain: 0.014, cutoff: 3000 }); }
+    tick: function (t) { tone(1760, t, 0.025, { type: 'square', gain: 0.014, cutoff: 3000 }); },
+    // Discovering a clue: a small bright two-note chime.
+    clue: function (t) {
+      tone(1046, t, 0.08, { type: 'sine', gain: 0.05 });
+      tone(1568, t + 0.07, 0.14, { type: 'sine', gain: 0.045 });
+    },
+    // A card landing in a box.
+    drop: function (t) { tone(330, t, 0.09, { type: 'triangle', gain: 0.07, to: 220 }); },
+    // A threat stopped: a rising, satisfying sweep.
+    stop: function (t) {
+      tone(392, t, 0.1, { type: 'triangle', gain: 0.06 });
+      tone(587, t + 0.08, 0.1, { type: 'triangle', gain: 0.06 });
+      tone(880, t + 0.16, 0.22, { type: 'sine', gain: 0.06 });
+    }
   };
 
   function play(name) {
