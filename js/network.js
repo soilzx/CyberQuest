@@ -1,10 +1,19 @@
 /*
- * CyberQuest — the simple network picture
+ * CyberQuest — the network picture
  *
- * Four recognisable devices (Internet, Server, Computer, Database) joined
- * by plain lines. A mission highlights the device involved, labels what it
- * is doing, and sends a moving dot along the connection. The picture
- * supports the story; it is never a puzzle to decode.
+ * Four recognisable devices (Internet, Server, Computer, Database) joined by
+ * plain lines. The picture is drawn from a small model, so a mission can
+ * redraw it at any time (for example after a language switch) without losing
+ * anything:
+ *
+ *   scene.update({
+ *     devices: { computer: { state: 'alert', tag: 'Sending files', clue: 'pending', clickable: true, flash: false } },
+ *     flow: { from: 'computer', to: 'internet', tone: 'warn' }
+ *   })
+ *
+ * state: normal | alert | danger | blocked | safe
+ * clue:  'pending' shows a pulsing "?" (a clue to discover), 'found' a tick.
+ * Clickable devices are real buttons for keyboard and screen-reader users.
  */
 (function (CQ) {
   'use strict';
@@ -32,8 +41,6 @@
     database: 'M4 6c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3zM4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3'
   };
 
-  var STATE_WORDS = { alert: 'Unusual', danger: 'In danger', blocked: 'Disconnected', safe: 'Safe' };
-
   function el(name, attrs, parent) {
     var n = document.createElementNS(NS, name);
     Object.keys(attrs || {}).forEach(function (k) { n.setAttribute(k, attrs[k]); });
@@ -45,24 +52,21 @@
     return typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   }
 
-  function create(container, options) {
-    var opts = options || {};
-    var names = {};
-    CQ.scenarios.devices.forEach(function (d) { names[d.id] = d.name; });
+  function t(key, vars) { return CQ.i18n.t(key, vars); }
 
-    var states = {};
-    var tags = {};
-    var active = null;       // [from, to]
+  function create(container) {
+    var model = { devices: {}, flow: null };
+    var clickHandlers = [];
     var flowTimer = null;
     var dots = [];
     var raf = null;
     var destroyed = false;
 
     container.textContent = '';
-    var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H, class: 'scene', role: 'img' });
+    var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H, class: 'scene', role: 'group' });
     container.appendChild(svg);
-    var gLinks = el('g', { class: 'scene-links' }, svg);
-    var gDots = el('g', { class: 'scene-dots' }, svg);
+    var gLinks = el('g', { class: 'scene-links', 'aria-hidden': 'true' }, svg);
+    var gDots = el('g', { class: 'scene-dots', 'aria-hidden': 'true' }, svg);
     var gNodes = el('g', { class: 'scene-nodes' }, svg);
 
     var linkEls = {};
@@ -75,16 +79,31 @@
     Object.keys(POS).forEach(function (id) {
       var p = POS[id];
       var g = el('g', { class: 'scene-node', transform: 'translate(' + p[0] + ' ' + p[1] + ')' }, gNodes);
+      el('circle', { class: 'scene-burst', r: 40 }, g);
       el('circle', { class: 'scene-halo', r: 52 }, g);
       el('circle', { class: 'scene-disc', r: 40 }, g);
       el('path', { class: 'scene-icon', d: ICONS[id], transform: 'translate(-18 -18) scale(1.5)' }, g);
-      var name = el('text', { class: 'scene-name', y: 66, 'text-anchor': 'middle' }, g);
-      name.textContent = names[id];
+      el('text', { class: 'scene-name', y: 66, 'text-anchor': 'middle' }, g);
       var tagG = el('g', { class: 'scene-tag', transform: 'translate(0 -62)' }, g);
       el('rect', { class: 'scene-tag-bg', x: -60, y: -15, width: 120, height: 28, rx: 14 }, tagG);
       el('text', { class: 'scene-tag-text', y: 5, 'text-anchor': 'middle' }, tagG);
+      var mark = el('g', { class: 'scene-mark', transform: 'translate(32 -30)' }, g);
+      el('circle', { class: 'scene-mark-bg', r: 13 }, mark);
+      el('text', { class: 'scene-mark-q', y: 6, 'text-anchor': 'middle' }, mark).textContent = '?';
+      el('path', { class: 'scene-mark-tick', d: 'M-5.5 0.5l3.5 3.5 7-7.5' }, mark);
+
+      g.addEventListener('click', function () { fire(id); });
+      g.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fire(id); }
+      });
       nodeEls[id] = g;
     });
+
+    function fire(id) {
+      var d = model.devices[id];
+      if (!d || !d.clickable) return;
+      clickHandlers.forEach(function (fn) { fn(id); });
+    }
 
     function linkKey(a, b) {
       if (linkEls[a + '-' + b]) return a + '-' + b;
@@ -92,37 +111,54 @@
       return null;
     }
 
-    function describe() {
-      var parts = Object.keys(POS).map(function (id) {
-        var s = states[id];
-        return names[id] + (s && s !== 'normal' ? ' (' + (tags[id] || STATE_WORDS[s]) + ')' : '');
-      });
-      svg.setAttribute('aria-label', 'Network picture: ' + parts.join(', ') + '.');
+    function sizeTag(tagG, label) {
+      var text = tagG.querySelector('.scene-tag-text');
+      text.textContent = label;
+      var w = 0;
+      try { w = text.getComputedTextLength(); } catch (e) { w = 0; }
+      if (!w) w = label.length * 8.6;
+      var width = Math.max(64, Math.round(w) + 26);
+      var rect = tagG.querySelector('.scene-tag-bg');
+      rect.setAttribute('x', -width / 2);
+      rect.setAttribute('width', width);
+      tagG.style.display = label ? '' : 'none';
     }
 
-    function apply() {
+    function render() {
+      var names = [];
       Object.keys(nodeEls).forEach(function (id) {
         var g = nodeEls[id];
-        var s = states[id] || 'normal';
-        g.setAttribute('class', 'scene-node is-' + s);
-        var label = tags[id] || STATE_WORDS[s] || '';
-        var tagG = g.querySelector('.scene-tag');
-        var text = tagG.querySelector('.scene-tag-text');
-        text.textContent = label;
-        // Size the pill to its text (Arial ~0.55em per character at 16px).
-        var w = Math.max(70, Math.round(label.length * 8.6) + 28);
-        var rect = tagG.querySelector('.scene-tag-bg');
-        rect.setAttribute('x', -w / 2);
-        rect.setAttribute('width', w);
-        tagG.style.display = label ? '' : 'none';
+        var d = model.devices[id] || {};
+        var state = d.state || 'normal';
+        var cls = 'scene-node is-' + state;
+        if (d.clickable) cls += ' is-clickable' + (d.action === 'open' ? ' is-problem' : '');
+        if (d.flash) cls += ' is-flashing';
+        if (d.clue) cls += ' has-clue clue-' + d.clue;
+        g.setAttribute('class', cls);
+        var name = t('device.' + id);
+        g.querySelector('.scene-name').textContent = name;
+        var label = d.tag || (state !== 'normal' ? t('state.' + state) : '');
+        sizeTag(g.querySelector('.scene-tag'), label);
+        if (d.clickable) {
+          g.setAttribute('role', 'button');
+          g.setAttribute('tabindex', '0');
+          g.setAttribute('aria-label', t(d.action === 'open' ? 'scene.open' : 'scene.investigate', { device: name }) + (label ? ' (' + label + ')' : ''));
+        } else {
+          g.removeAttribute('role');
+          g.removeAttribute('tabindex');
+          g.removeAttribute('aria-label');
+        }
+        names.push(name + (label ? ' (' + label + ')' : ''));
       });
+      var flow = model.flow;
       Object.keys(linkEls).forEach(function (k) {
         var ends = k.split('-');
-        var on = active && linkKey(active[0], active[1]) === k;
-        var cut = states[ends[0]] === 'blocked' || states[ends[1]] === 'blocked';
-        linkEls[k].setAttribute('class', 'scene-link' + (on ? ' is-active' : '') + (cut ? ' is-cut' : ''));
+        var on = flow && linkKey(flow.from, flow.to) === k;
+        var da = model.devices[ends[0]] || {}, db = model.devices[ends[1]] || {};
+        var cut = da.state === 'blocked' || db.state === 'blocked';
+        linkEls[k].setAttribute('class', 'scene-link' + (on ? ' is-active tone-' + (flow.tone || 'warn') : '') + (cut ? ' is-cut' : ''));
       });
-      describe();
+      svg.setAttribute('aria-label', t('scene.aria', { list: names.join(', ') }));
     }
 
     function spawnDot(from, to, tone) {
@@ -136,9 +172,9 @@
     function step(ts) {
       raf = null;
       dots = dots.filter(function (d) {
-        var t = (ts - d.start) / d.dur;
-        if (t >= 1) { d.el.remove(); return false; }
-        var e = t < 0 ? 0 : t;
+        var p = (ts - d.start) / d.dur;
+        if (p >= 1) { d.el.remove(); return false; }
+        var e = p < 0 ? 0 : p;
         d.el.setAttribute('cx', (d.a[0] + (d.b[0] - d.a[0]) * e).toFixed(1));
         d.el.setAttribute('cy', (d.a[1] + (d.b[1] - d.a[1]) * e).toFixed(1));
         return true;
@@ -146,58 +182,43 @@
       if (dots.length && !destroyed) raf = requestAnimationFrame(step);
     }
 
-    function stopFlow() {
+    function restartFlow() {
       if (flowTimer) clearInterval(flowTimer);
       flowTimer = null;
+      var f = model.flow;
+      if (!f || !linkKey(f.from, f.to)) return;
+      spawnDot(f.from, f.to, f.tone);
+      flowTimer = setInterval(function () { spawnDot(f.from, f.to, f.tone); }, 700);
     }
 
     var api = {
-      /**
-       * show({ from, to, focus, tag, state, tone })
-       * Highlights one situation: the focus device gets a state and a label,
-       * and dots travel from `from` to `to` while the situation is open.
-       */
-      show: function (s) {
-        api.reset();
-        if (!s) return;
-        if (s.focus) {
-          states[s.focus] = s.state || 'alert';
-          if (s.tag) tags[s.focus] = s.tag;
-        }
-        if (s.from && s.to && linkKey(s.from, s.to)) {
-          active = [s.from, s.to];
-          spawnDot(s.from, s.to, s.tone);
-          flowTimer = setInterval(function () { spawnDot(s.from, s.to, s.tone); }, 700);
-        }
-        apply();
+      update: function (next) {
+        var prevFlow = JSON.stringify(model.flow);
+        model = { devices: (next && next.devices) || {}, flow: (next && next.flow) || null };
+        render();
+        if (JSON.stringify(model.flow) !== prevFlow) restartFlow();
       },
-      // Settle the situation after a decision.
-      resolve: function (focus, state, tag) {
-        stopFlow();
-        active = null;
-        if (focus) {
-          states[focus] = state || 'normal';
-          tags[focus] = tag || STATE_WORDS[state] || '';
-        }
-        apply();
+      // Redraw labels (used after a language switch).
+      refresh: render,
+      onClick: function (fn) { clickHandlers.push(fn); },
+      // A short green ring when a threat is stopped.
+      burst: function (id) {
+        var g = nodeEls[id];
+        if (!g || reducedMotion()) return;
+        g.classList.remove('is-bursting');
+        void g.getBoundingClientRect();
+        g.classList.add('is-bursting');
+        setTimeout(function () { g.classList.remove('is-bursting'); }, 900);
       },
-      reset: function () {
-        stopFlow();
-        dots.forEach(function (d) { d.el.remove(); });
-        dots = [];
-        states = {};
-        tags = {};
-        active = null;
-        apply();
-      },
+      focusDevice: function (id) { var g = nodeEls[id]; if (g && g.focus) g.focus(); },
       destroy: function () {
         destroyed = true;
-        stopFlow();
+        if (flowTimer) clearInterval(flowTimer);
         if (raf) cancelAnimationFrame(raf);
         container.textContent = '';
       }
     };
-    if (opts.initial) api.show(opts.initial); else apply();
+    render();
     return api;
   }
 

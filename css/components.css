@@ -72,7 +72,7 @@
   border-radius: 5px;
   background: var(--accent);
   transform: scaleX(0);
-  transform-origin: left center;
+  transform-origin: var(--origin-start);
   transition: transform 0.5s ease;
 }
 
@@ -80,7 +80,7 @@
 .score-label { color: var(--text-2); font-size: var(--fs-small); }
 .score-value { font-size: 1.75rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .score-delta {
-  position: absolute; right: 0; top: 100%;
+  position: absolute; inset-inline-end: 0; top: 100%;
   font-size: var(--fs-small); font-weight: 700;
   pointer-events: none;
 }
@@ -107,12 +107,13 @@
   position: relative;
   padding: 12px 20px;
   border: 1px solid var(--line);
-  border-radius: 6px 18px 18px 18px;
+  border-radius: 18px;
+  border-start-start-radius: 6px;
   background: var(--surface);
   font-size: var(--fs-body);
   min-width: 0;
 }
-.guide-bubble strong { color: var(--accent); margin-right: 6px; }
+.guide-bubble strong { color: var(--accent); margin-inline-end: 6px; }
 .guide[data-mood="alert"] .guide-avatar { border-color: var(--warn); background: var(--warn-soft); }
 .guide[data-mood="alert"] .guide-avatar svg { stroke: var(--warn); }
 .guide[data-mood="alert"] .guide-avatar circle { fill: var(--warn); }
@@ -152,7 +153,7 @@
   padding: 18px 22px;
   border-radius: var(--radius);
   background: var(--surface-2);
-  text-align: left;
+  text-align: start;
 }
 .lesson-label { color: var(--accent); font-weight: 700; margin-bottom: 4px; }
 .lesson-text { font-size: var(--fs-body); }
@@ -180,7 +181,7 @@
   border: 2px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface-2);
-  text-align: left;
+  text-align: start;
   font-size: var(--fs-body);
   font-weight: 700;
   transition: border-color 0.15s ease, background-color 0.15s ease;
@@ -199,7 +200,7 @@
 .choice-text { display: grid; gap: 2px; min-width: 0; }
 .choice-sub { font-size: var(--fs-small); font-weight: 400; color: var(--text-2); }
 .choice-tag {
-  margin-left: auto;
+  margin-inline-start: auto;
   flex: none;
   padding: 4px 10px;
   border-radius: 999px;
@@ -224,7 +225,7 @@
 }
 .clue strong { color: var(--accent); }
 .clue-icon { color: var(--accent); padding-top: 1px; }
-.clue-list { display: grid; gap: 6px; margin-top: 6px; list-style: disc; padding-left: 20px; }
+.clue-list { display: grid; gap: 6px; margin-top: 6px; list-style: disc; padding-inline-start: 20px; }
 
 /* Feedback */
 .feedback {
@@ -249,7 +250,7 @@
 .tone-bad .feedback-icon { background: var(--bad); }
 .tone-okay .feedback-icon { background: var(--warn); }
 .feedback-title { font-size: var(--fs-h3); }
-.feedback-points { margin-left: auto; font-weight: 700; font-size: var(--fs-body); white-space: nowrap; }
+.feedback-points { margin-inline-start: auto; font-weight: 700; font-size: var(--fs-body); white-space: nowrap; }
 .feedback-text { font-size: var(--fs-body); }
 .btn-continue { align-self: flex-start; min-height: 60px; padding: 0 40px; font-size: var(--fs-lead); border-radius: 16px; }
 
@@ -305,10 +306,8 @@
 }
 .email-bar { display: flex; align-items: center; gap: 6px; padding: 12px 16px; background: #DCE3EE; }
 .email-dot { width: 12px; height: 12px; border-radius: 50%; background: #A9B4C6; }
-.email-app { margin-left: 8px; font-size: var(--fs-small); font-weight: 700; color: #3A4659; }
 .email-body { display: grid; gap: 10px; padding: 20px 22px 24px; }
 .email-from { font-size: var(--fs-small); color: #3A4659; overflow-wrap: anywhere; }
-.email-key { font-weight: 700; margin-right: 8px; color: #1A2233; }
 .email-subject { font-size: var(--fs-h3); font-weight: 700; line-height: 1.25; }
 .email-text { font-size: var(--fs-body); }
 .email-button {
@@ -322,7 +321,7 @@
 }
 .email-stamp {
   position: absolute;
-  right: 18px; bottom: 22px;
+  inset-inline-end: 18px; bottom: 22px;
   padding: 8px 14px;
   border: 3px solid currentColor;
   border-radius: 10px;
@@ -396,7 +395,7 @@
   position: absolute; inset: 0;
   background: var(--accent);
   transform: scaleX(0);
-  transform-origin: left center;
+  transform-origin: var(--origin-start);
   transition: transform 0.08s linear;
 }
 
@@ -468,7 +467,7 @@
   position: absolute; inset: 0;
   border-radius: 7px;
   background: var(--good);
-  transform-origin: left center;
+  transform-origin: var(--origin-start);
   transition: transform 0.25s linear, background-color 0.3s ease;
 }
 .health.is-mid .health-fill { background: var(--warn); }
@@ -569,11 +568,11 @@
   background: var(--surface);
 }
 .dialog--wide { width: min(100%, 820px); }
-.dialog-title { font-size: 1.75rem; padding-right: 48px; }
+.dialog-title { font-size: 1.75rem; padding-inline-end: 48px; }
 .dialog-body { margin-top: 14px; color: var(--text-2); }
 .dialog-actions { display: flex; flex-wrap: wrap-reverse; justify-content: flex-end; gap: 10px; margin-top: 24px; }
 .dialog-close {
-  position: absolute; top: 14px; right: 14px;
+  position: absolute; top: 14px; inset-inline-end: 14px;
   display: grid; place-items: center;
   width: 48px; height: 48px;
   border: 0; border-radius: 12px;
@@ -686,4 +685,283 @@
   .board-row { grid-template-columns: 32px minmax(0, 1fr) auto; }
   .board-time { display: none; }
   .journey-label { font-size: var(--fs-small); }
+}
+
+/* ================================================================== */
+/* Bilingual, interactive and partner additions                       */
+/* ================================================================== */
+
+/* Language switcher (EN / عربي) */
+.lang-switch {
+  display: inline-flex;
+  padding: 4px;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.lang-switch button {
+  min-width: 64px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-2);
+  font-weight: 700;
+  font-size: var(--fs-body);
+}
+.lang-switch button[lang="ar"] { font-family: 'Tajawal', Arial, sans-serif; font-size: 1.125rem; }
+.lang-switch button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.lang-switch button:hover:not([aria-pressed="true"]) { color: var(--text); background: var(--surface); }
+.lang-switch--compact button { min-width: 52px; min-height: 40px; padding: 0 10px; }
+.intro-brand { justify-content: space-between; }
+
+/* Club logos in the start screen's header (transparent PNG or SVG, never stretched) */
+.intro-foot { display: grid; justify-items: center; }
+.partners { display: flex; align-items: center; gap: 22px; margin: 0; padding: 0; list-style: none; }
+.partner { display: flex; align-items: center; }
+.partner + .partner { padding-inline-start: 22px; border-inline-start: 1px solid var(--line); }
+.partner img {
+  display: block;
+  width: auto;
+  height: 96px;
+  max-width: 260px;
+  object-fit: contain;
+}
+.intro-note { color: var(--text-2); font-size: var(--fs-small); text-align: center; }
+
+/* Number badges on choices (match keys 1, 2, 3) */
+.choice-key {
+  display: grid; place-items: center; flex: none;
+  width: 32px; height: 32px;
+  border-radius: 9px;
+  border: 2px solid var(--line);
+  color: var(--text-2);
+  font-size: var(--fs-small);
+  font-weight: 700;
+}
+.choice:hover .choice-key { border-color: var(--accent); color: var(--accent); }
+.choice--danger .choice-icon { background: var(--bad-soft); color: var(--bad); }
+
+/* Evidence box under the picture */
+.cluebox {
+  width: 100%;
+  max-width: 520px;
+  padding: 14px 18px;
+  border: 2px dashed var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  transition: border-color 0.3s ease;
+}
+.cluebox.is-complete { border-style: solid; border-color: var(--accent); }
+.cluebox-title { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--accent); }
+.cluebox-icon .icon { width: 20px; height: 20px; }
+.cluebox .clue-list { list-style: none; padding: 0; margin-top: 8px; gap: 8px; }
+.clue-item {
+  position: relative;
+  padding-inline-start: 26px;
+  font-size: var(--fs-body);
+  animation: cq-pop 0.3s ease-out both;
+}
+.clue-item::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 4px;
+  top: 0.55em;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.cluebox-more { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-top: 8px; }
+.cluebox-hint { color: var(--text-2); font-size: var(--fs-small); }
+.cluebox .btn-clue { min-height: 44px; padding: 0 16px; font-size: var(--fs-small); }
+
+/* Clickable devices, clue markers and problems in the picture */
+.scene-node.is-clickable { cursor: pointer; }
+.scene-node.is-clickable .scene-disc { stroke: var(--accent); stroke-width: 4; }
+.scene-node.is-clickable:hover .scene-disc,
+.scene-node.is-clickable:focus-visible .scene-disc { fill: #24365C; }
+.scene-node:focus { outline: none; }
+.scene-node:focus-visible .scene-halo { fill: transparent; stroke: var(--accent); stroke-width: 3; stroke-dasharray: 6 5; }
+.scene-mark { display: none; }
+.scene-node.has-clue .scene-mark { display: block; }
+.scene-mark-bg { fill: var(--accent); }
+.scene-mark-q { fill: var(--accent-ink); font-size: 18px; font-weight: 700; font-family: Arial, sans-serif; }
+.scene-mark-tick { fill: none; stroke: var(--accent-ink); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; display: none; }
+.scene-node.clue-found .scene-mark-q { display: none; }
+.scene-node.clue-found .scene-mark-tick { display: block; }
+.scene-node.clue-found .scene-mark-bg { fill: var(--good); }
+.scene-burst { fill: none; stroke: var(--good); stroke-width: 6; opacity: 0; }
+.scene-link.is-active.tone-danger { stroke: var(--bad); }
+
+/* Email hotspots (Mission 1) */
+.hotspot {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 10px;
+  font: inherit;
+  color: inherit;
+  text-align: start;
+}
+button.hotspot { cursor: pointer; border: 0; background: none; padding: 0; }
+.hotspot.is-pending { outline: 3px solid var(--accent); outline-offset: 4px; }
+.hotspot.is-found { outline: 3px solid var(--good); outline-offset: 4px; }
+.hotspot-mark {
+  display: inline-grid; place-items: center; flex: none;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: Arial, sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+}
+.hotspot.is-found .hotspot-mark { background: var(--good); }
+.email-sender { overflow-wrap: anywhere; }
+.email-address { font-family: Arial, sans-serif; }
+.email-action { margin-top: 4px; }
+.email-button.hotspot, .email-button {
+  display: inline-flex;
+  padding: 10px 18px;
+  border-radius: 10px;
+  background: #2F6FEB;
+  color: #FFFFFF;
+  font-weight: 700;
+}
+.email-button .hotspot-mark { background: #FFFFFF; color: #1A2233; }
+.email.is-blocked .email-stamp { color: #13804F; }
+.email.is-delivered .email-stamp { color: #C7392A; }
+
+/* Mission 2: drag the card into a box */
+.deck { display: grid; place-items: center; width: 100%; min-height: 0; }
+.example.is-draggable {
+  max-width: 420px;
+  padding: 22px 24px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  border-color: var(--accent);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+  transition: transform 0.25s ease, box-shadow 0.2s ease;
+  animation: cq-deal 0.35s ease-out both;
+}
+.example.is-dragging { cursor: grabbing; transition: none; box-shadow: 0 18px 36px rgba(0, 0, 0, 0.4); z-index: 5; position: relative; }
+.bins { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; width: 100%; max-width: 520px; }
+.bin {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-height: 104px;
+  padding: 14px 16px;
+  border: 3px dashed var(--line);
+  border-radius: 18px;
+  background: var(--surface-2);
+  transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
+}
+.bin-title { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: var(--fs-lead); }
+.bin-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; }
+.bin--benign .bin-icon { background: var(--accent-soft); color: var(--accent); }
+.bin--malicious .bin-icon { background: var(--warn-soft); color: var(--warn); }
+.bin-count { color: var(--text-2); font-size: var(--fs-small); }
+.bin.is-over { border-style: solid; transform: scale(1.03); }
+.bin--benign.is-over { border-color: var(--accent); background: rgba(46, 211, 198, 0.16); }
+.bin--malicious.is-over { border-color: var(--warn); background: rgba(244, 181, 81, 0.16); }
+.bin.is-bumped { animation: cq-bump 0.35s ease-out; }
+.chips { display: grid; gap: 6px; }
+.chip, .test-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: var(--fs-small);
+  line-height: 1.3;
+}
+.chip.is-learned { background: var(--accent-soft); color: var(--accent); }
+.test-chip { animation: cq-pop 0.35s ease-out both; }
+.test-chip .test-mark { width: 24px; height: 24px; flex: none; }
+.test-chip.is-right .test-mark { background: var(--good); color: var(--on-bright); }
+.test-chip.is-wrong .test-mark { background: var(--bad); color: var(--on-bright); }
+.test-chip .test-mark .icon { width: 14px; height: 14px; stroke-width: 3; }
+.deck--test { min-height: 64px; }
+.test-card {
+  padding: 14px 20px;
+  border: 2px solid var(--accent);
+  border-radius: 14px;
+  background: var(--surface-2);
+  font-weight: 700;
+  animation: cq-deal 0.3s ease-out both;
+}
+
+/* Mission 2: the AI learning */
+.brain { display: grid; justify-items: center; gap: 8px; }
+.brain-ring {
+  --p: 0;
+  display: grid; place-items: center;
+  width: 128px; height: 128px;
+  border-radius: 50%;
+  background: conic-gradient(var(--accent) calc(var(--p) * 1%), var(--surface-2) 0);
+}
+.brain-core {
+  display: grid; place-items: center;
+  width: 104px; height: 104px;
+  border-radius: 50%;
+  background: var(--surface);
+}
+.brain-core svg { width: 64px; height: 64px; fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; }
+.brain-core circle { fill: var(--accent); stroke: none; }
+.brain.is-learning .brain-core svg { animation: cq-think 0.8s ease-in-out infinite; }
+.brain-caption { color: var(--text-2); font-size: var(--fs-small); }
+
+/* Mission 4: health draining while problems are open */
+.hud.is-draining .health-fill { animation: cq-drain 1s ease-in-out infinite; }
+.mission-badge.is-done { background: var(--good-soft); border-color: var(--good); color: var(--good); }
+.mission-badge .icon { width: 44px; height: 44px; stroke-width: 3; }
+
+@media (min-width: 1700px) and (min-height: 1000px) {
+  .partner img { height: 112px; }
+}
+@media (max-height: 800px) and (min-width: 801px) {
+  .partner img { height: 80px; }
+  .example.is-draggable { padding: 18px 20px; }
+  .bin { min-height: 92px; padding: 10px 14px; }
+  .cluebox { padding: 12px 16px; }
+}
+
+@media (max-width: 600px) {
+  .partners { gap: 14px; }
+  .partner + .partner { padding-inline-start: 14px; }
+  .partner img { height: 52px; max-width: 130px; }
+  .lang-switch button { min-width: 52px; }
+  .topbar-controls .lang-switch--compact button { min-width: 44px; padding: 0 6px; }
+}
+
+/* Mission 4: step label and "Back to the network" share one row */
+.panel-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.panel-top .btn-back { min-height: 40px; padding: 0 4px; font-size: var(--fs-small); }
+
+/* Arabic headlines need a little more width per line */
+:root[lang="ar"] .intro-title { max-width: none; line-height: 1.28; }
+:root[lang="ar"] .intro-sub { max-width: 32em; }
+
+/* Problem devices (Mission 4) keep their danger colour while clickable */
+.scene-node.is-problem.is-danger .scene-disc { stroke: var(--bad); }
+.scene-node.is-problem.is-alert .scene-disc { stroke: var(--warn); }
+
+/* Short desktop screens: compact feedback so long explanations still fit without scrolling */
+@media (max-height: 800px) and (min-width: 801px) {
+  .feedback { padding: 12px 16px; }
+  .feedback-head { margin-bottom: 4px; }
+  .feedback-icon { width: 32px; height: 32px; }
+  .feedback-title { font-size: 1.3125rem; }
+  .big-stat-num { font-size: 2rem; }
+  .test-tile { padding: 10px 12px; }
+}
+@media (max-height: 800px) and (min-width: 801px) {
+  :root[lang="ar"] .results-title { font-size: 2.5rem; }
+  :root[lang="ar"] .results-wrap { gap: 16px; }
 }

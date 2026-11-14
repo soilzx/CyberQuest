@@ -23,3 +23,23 @@
   }
   .score-delta { display: none; }
 }
+
+/* Interaction cues added for the interactive missions */
+@keyframes cq-deal { from { opacity: 0; transform: translateY(-14px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes cq-bump { 0% { transform: scale(1); } 40% { transform: scale(1.05); } 100% { transform: scale(1); } }
+@keyframes cq-think { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes cq-drain { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+@keyframes cq-flash { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
+@keyframes cq-burst { 0% { opacity: 0.9; r: 40; } 100% { opacity: 0; r: 82; } }
+@keyframes cq-mark { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.18); } }
+
+.scene-node.is-flashing .scene-halo { animation: cq-flash 0.9s ease-in-out infinite; }
+.scene-node.is-flashing .scene-disc { stroke-width: 5; }
+.scene-node.is-bursting .scene-burst { animation: cq-burst 0.8s ease-out forwards; }
+.scene-node.clue-pending .scene-mark-bg { transform-box: fill-box; transform-origin: center; animation: cq-mark 1.2s ease-in-out infinite; }
+.hotspot.is-pending .hotspot-mark { animation: cq-mark 1.2s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .scene-node.is-flashing .scene-halo { animation: none; opacity: 1; }
+  .scene-node.clue-pending .scene-mark-bg, .hotspot.is-pending .hotspot-mark { animation: none; }
+}

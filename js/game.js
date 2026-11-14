@@ -156,7 +156,9 @@
     this.reset();
     var s = this.state;
     s.anonymous = !name;
-    s.nickname = name || anonymousName();
+    // Anonymous players get a number; screens show it as "Agent 1234" / "العميل 1234".
+    s.agentNumber = Math.floor(Math.random() * 9000) + 1000;
+    s.nickname = name || anonymousName(s.agentNumber);
     s.runId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
     s.phase = 'playing';
     s.startedAt = now();
@@ -260,10 +262,11 @@
     var seconds = this.missionElapsed();
     s.missionTimes[index] = seconds;
     var bonuses = [];
-    bonuses.push(this.award(COMPLETION_BONUS, 'Mission ' + (index + 1) + ' complete', 'bonus'));
+    // Ledger reasons are { k: translation key, v: values } so they can be shown in any language.
+    bonuses.push(this.award(COMPLETION_BONUS, { k: 'ledger.missionComplete', v: { n: index + 1 } }, 'bonus'));
     if (!opts || opts.efficiency !== false) {
       var eff = efficiencyBonus(seconds, par);
-      if (eff > 0) bonuses.push(this.award(eff, 'Decisive response (' + Math.round(seconds) + ' s)', 'bonus'));
+      if (eff > 0) bonuses.push(this.award(eff, { k: 'ledger.decisive', v: { s: Math.round(seconds) } }, 'bonus'));
     }
     this.emit('missionComplete', { index: index, seconds: seconds, bonuses: bonuses });
     return { seconds: seconds, bonuses: bonuses, missionScore: s.missionScores[index] };
@@ -288,6 +291,7 @@
       runId: s.runId,
       nickname: s.nickname,
       anonymous: s.anonymous,
+      agentNumber: s.agentNumber,
       score: s.score,
       rank: rankFor(s.score),
       timeMs: Math.round(this.elapsedMs()),

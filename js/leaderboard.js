@@ -83,6 +83,9 @@
           entries.push({
             runId: String(summary.runId),
             nickname: String(summary.nickname).slice(0, 24),
+            // Anonymous runs keep their number so the name can be shown in either language.
+            agent: summary.anonymous ? summary.agentNumber : undefined,
+            rankId: String(summary.rank && summary.rank.id || ''),
             score: Math.round(summary.score),
             rank: String(summary.rank && summary.rank.name || ''),
             timeMs: Math.round(summary.timeMs),
@@ -104,6 +107,7 @@
         var entry = entries.find(function (e) { return e.runId === runId; });
         if (!entry) return { renamed: false, position: 0 };
         entry.nickname = String(nickname).slice(0, 24);
+        delete entry.agent;
         store.save(entries);
         var idx = entries.findIndex(function (e) { return e.runId === runId; });
         return { renamed: true, position: idx >= 0 && idx < LIMIT ? idx + 1 : 0 };

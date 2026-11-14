@@ -1,14 +1,15 @@
 /*
  * CyberQuest — missions
  *
- * Each mission shows one situation at a time: a picture on the left, and
- * on the right a title, a short explanation and two or three big buttons.
- * After a choice, the buttons are replaced by feedback and a Continue button.
+ * Every mission keeps its progress in plain state and draws the screen
+ * from that state in render(). Switching language simply calls render()
+ * again, so nothing is lost mid-mission.
  *
- * Each factory returns { start, destroy, onKey, hint } and calls
- * ctx.complete(result) when the mission is finished.
+ * Each factory returns { start, render, destroy, onKey, hint } and calls
+ * ctx.complete(result) when the mission is finished. hint() returns a
+ * translation key.
  *
- * ctx = { game, audio, clock, stage, nexus, progress(fraction), complete(result) }
+ * ctx = { game, audio, clock, stage, nexus, progress(fraction), complete(result), armHint, disarmHint }
  */
 (function (CQ) {
   'use strict';
@@ -16,12 +17,12 @@
   var ui = CQ.ui;
   var h = ui.h;
   var S = CQ.scenarios;
+  function T(k, v) { return CQ.i18n.t(k, v); }
+  function L(x, v) { return CQ.i18n.pick(x, v); }
 
   /* ------------------------------------------------------------------ */
   /* Shared building blocks                                               */
   /* ------------------------------------------------------------------ */
-
-  // The two-part stage: picture on the left, decision on the right.
   function layout(ctx, visual, panel) {
     ui.clear(ctx.stage);
     var v = h('div', { class: 'stage-visual' }, visual);
@@ -30,181 +31,201 @@
     return { visual: v, panel: p };
   }
 
-  function replacePanel(slots, content) {
-    ui.clear(slots.panel);
-    [].concat(content).forEach(function (c) { if (c) slots.panel.appendChild(c); });
-  }
-
-  function sceneBox() { return h('div', { class: 'scene-host' }); }
-
   function stepLabel(text) { return h('p', { class: 'step-label' }, text); }
-
   function title(text) { return h('h2', { class: 'challenge-title', tabindex: '-1' }, text); }
-
   function story(text) { return h('p', { class: 'challenge-text' }, text); }
+  function question(text) { return h('p', { class: 'question' }, text); }
 
-  function choice(label, sub, opts) {
+  function choice(label, opts) {
     var o = opts || {};
     return h('button', {
       type: 'button',
-      class: 'choice' + (o.tone ? ' choice--' + o.tone : '') + (o.extra ? ' ' + o.extra : ''),
+      class: 'choice' + (o.tone ? ' choice--' + o.tone : ''),
       data: o.key ? { key: o.key } : null,
       on: { click: o.onClick }
     },
+      o.key ? h('span', { class: 'choice-key', 'aria-hidden': 'true' }, o.key) : null,
       o.icon ? h('span', { class: 'choice-icon' }, ui.svgIcon(o.icon)) : null,
       h('span', { class: 'choice-text' },
         h('span', { class: 'choice-label' }, label),
-        sub ? h('span', { class: 'choice-sub' }, sub) : null),
+        o.sub ? h('span', { class: 'choice-sub' }, o.sub) : null),
       o.tag ? h('span', { class: 'choice-tag' }, o.tag) : null);
   }
 
   function continueButton(label, onClick) {
-    return h('button', { type: 'button', class: 'btn btn-primary btn-continue', on: { click: onClick } }, label || 'Continue');
+    return h('button', { type: 'button', class: 'btn btn-primary btn-continue', on: { click: onClick } }, label);
   }
 
-  function confidenceWords(c) {
-    return { high: 'Very sure', medium: 'Fairly sure', low: 'Not very sure' }[c] || 'Not sure';
+  /**
+   * The evidence box under the picture: lists the clues found so far and
+   * offers a button for players who prefer not to click the picture.
+   */
+  function clueBox(items, found, opts) {
+    var n = found.filter(Boolean).length;
+    var total = items.length;
+    var list = h('ul', { class: 'clue-list' });
+    items.forEach(function (c, i) {
+      if (found[i]) list.appendChild(h('li', { class: 'clue-item' }, L(c.text)));
+    });
+    return h('div', { class: 'cluebox' + (n === total ? ' is-complete' : ''), tabindex: '-1' },
+      h('p', { class: 'cluebox-title' },
+        h('span', { class: 'cluebox-icon' }, ui.svgIcon(ui.ICON.clue)),
+        T(opts.titleKey || 'clues.title', { n: n, total: total })),
+      n ? list : null,
+      n < total && !opts.locked ? h('div', { class: 'cluebox-more' },
+        h('p', { class: 'cluebox-hint' }, T(opts.hintKey || 'clues.hintDevices')),
+        h('button', { type: 'button', class: 'btn btn-secondary btn-clue', on: { click: opts.onMore } }, T('clues.more'))) : null);
   }
 
-  var PRAISE = ['Nice work!', 'Good thinking!', 'You’re getting good at this!', 'Great job!'];
-  var COMFORT = ['Tricky one! Let’s keep going.', 'That one fooled me too once.', 'Now you know the warning sign.'];
-  function pick(list, i) { return list[i % list.length]; }
-
-  function emailCard(v, verdict) {
+  function emailCard(v, clues, found, onFind, verdict) {
+    function spot(where, content, cls) {
+      var idx = clues.findIndex(function (c) { return c.at === where; });
+      if (idx < 0) return h('span', { class: cls }, content);
+      var pending = !found[idx] && !verdict;
+      return h(pending ? 'button' : 'span', {
+        type: pending ? 'button' : null,
+        class: cls + ' hotspot ' + (found[idx] ? 'is-found' : pending ? 'is-pending' : ''),
+        'aria-label': pending ? T('clues.more') + ': ' + content.textContent : null,
+        on: pending ? { click: function () { onFind(idx); } } : null
+      }, content, h('span', { class: 'hotspot-mark', 'aria-hidden': 'true' }, found[idx] ? '✓' : '?'));
+    }
+    var address = h('bdi', { class: 'email-address', dir: 'ltr' }, v.address);
+    var sender = h('span', { class: 'email-sender' }, L(v.sender) + ' ', '<', address, '>');
     return h('div', { class: 'email' + (verdict ? ' is-' + verdict : '') },
       h('div', { class: 'email-bar' },
-        h('span', { class: 'email-dot' }), h('span', { class: 'email-dot' }), h('span', { class: 'email-dot' }),
-        h('span', { class: 'email-app' }, 'Inbox')),
+        h('span', { class: 'email-dot' }), h('span', { class: 'email-dot' }), h('span', { class: 'email-dot' })),
       h('div', { class: 'email-body' },
-        h('p', { class: 'email-from' }, h('span', { class: 'email-key' }, 'From'), v.from),
-        h('p', { class: 'email-subject' }, v.subject),
-        h('p', { class: 'email-text' }, v.body),
-        h('span', { class: 'email-button', 'aria-hidden': 'true' }, v.button)),
-      verdict ? h('span', { class: 'email-stamp' }, verdict === 'blocked' ? 'Phishing blocked' : 'Phishing reached the user') : null);
+        h('p', { class: 'email-from' }, spot('sender', sender, 'email-from-text')),
+        h('p', { class: 'email-subject' }, L(v.subject)),
+        h('p', { class: 'email-text' }, L(v.body)),
+        h('p', { class: 'email-action' }, spot('button', h('span', { class: 'email-button-text' }, L(v.button)), 'email-button'))),
+      verdict ? h('span', { class: 'email-stamp' }, T(verdict === 'blocked' ? 'email.blocked' : 'email.delivered')) : null);
   }
+
+  function confidenceWords(c) { return T('m3.sure.' + (c || 'low')); }
 
   /* ------------------------------------------------------------------ */
   /* Mission 1: Spot the Threat                                           */
   /* ------------------------------------------------------------------ */
   function mission1(ctx) {
     var items = S.mission1;
-    var index = 0;
-    var answered = false;
-    var clueShown = false;
-    var slots = null;
+    var st = { index: 0, found: [], answer: null };
     var scene = null;
     var correctCount = 0;
 
-    function item() { return items[index]; }
+    function item() { return items[st.index]; }
+    function chosen() { var it = item(); return it.choices.filter(function (c) { return c.id === st.answer; })[0] || null; }
+
+    function sceneModel() {
+      var it = item(), v = it.visual, ch = chosen();
+      var devices = {};
+      devices[v.focus] = { state: ch ? (ch.node || 'normal') : 'alert', tag: ch ? null : L(v.tag) };
+      it.clues.forEach(function (c, i) {
+        if (!CQ.network.positions[c.at]) return;
+        var d = devices[c.at] || (devices[c.at] = {});
+        d.clue = st.found[i] ? 'found' : 'pending';
+        d.clickable = !st.found[i] && !ch;
+      });
+      return { devices: devices, flow: ch ? null : { from: v.from, to: v.to, tone: 'warn' } };
+    }
+
+    function render() {
+      var it = item(), ch = chosen();
+      if (scene) { scene.destroy(); scene = null; }
+      var isEmail = it.visual.type === 'email';
+      var verdict = ch ? (ch.grade === 'best' ? 'blocked' : 'delivered') : null;
+      var visual = isEmail ? emailCard(it.visual, it.clues, st.found, findClue, verdict) : h('div', { class: 'scene-host' });
+      var box = clueBox(it.clues, st.found, { hintKey: isEmail ? 'clues.hintEmail' : 'clues.hintDevices', onMore: nextClue, locked: !!ch });
+      var panel = [stepLabel(T('q.situation', { n: st.index + 1, total: items.length })), title(L(it.title))];
+      if (!ch) {
+        panel.push(story(L(it.situation)), question(L(it.question)),
+          h('div', { class: 'choices choices--stack' }, it.choices.map(function (c, i) {
+            return choice(L(c.label), { key: String(i + 1), onClick: function () { decide(c.id); } });
+          })));
+      } else {
+        var tone = ui.toneForGrade(ch.grade);
+        panel.push(ui.feedback(tone, L(ch.feedback), ch.points),
+          continueButton(T(st.index === items.length - 1 ? 'btn.finish' : 'btn.nextSituation'), next));
+      }
+      layout(ctx, [visual, box], panel);
+      if (!isEmail) {
+        var host = ctx.stage.querySelector('.scene-host');
+        scene = CQ.network.create(host);
+        scene.onClick(function (id) {
+          var idx = it.clues.findIndex(function (c, i) { return c.at === id && !st.found[i]; });
+          if (idx >= 0) findClue(idx);
+        });
+        scene.update(sceneModel());
+      }
+    }
+
+    function findClue(i) {
+      if (st.answer || st.found[i]) return;
+      st.found[i] = true;
+      ctx.audio.play('clue');
+      var all = item().clues.every(function (c, k) { return st.found[k]; });
+      ctx.nexus.say(all ? 'nx.allClues' : 'nx.clue', null, 'happy');
+      render();
+      ui.focus(ctx.stage, '.cluebox');
+      ctx.armHint();
+    }
+
+    function nextClue() {
+      var idx = item().clues.findIndex(function (c, i) { return !st.found[i]; });
+      if (idx >= 0) findClue(idx);
+    }
 
     function show(i) {
-      index = i;
-      answered = false;
-      clueShown = false;
-      var it = item();
-      var visual;
-      if (it.visual.type === 'email') {
-        visual = emailCard(it.visual);
-        scene = null;
-      } else {
-        visual = sceneBox();
-      }
-      slots = layout(ctx, visual, panelContent());
-      if (it.visual.type !== 'email') {
-        scene = CQ.network.create(visual);
-        scene.show({ from: it.visual.from, to: it.visual.to, focus: it.visual.focus, tag: it.visual.tag, state: 'alert' });
-      }
-      ctx.nexus.say(i === 0 ? 'Something looks unusual. Want to check it? Tap “Show a clue” if you need help.' : it.nexus);
+      st = { index: i, found: [], answer: null };
+      render();
+      ctx.nexus.say(item().nexus);
       ctx.audio.play('alert');
       ctx.progress(i / items.length);
       ctx.armHint();
       ui.focus(ctx.stage, '.challenge-title');
     }
 
-    function clueBlock() {
+    function decide(choiceId) {
+      if (st.answer) return;
       var it = item();
-      if (clueShown) {
-        return h('div', { class: 'clue is-open' },
-          h('span', { class: 'clue-icon' }, ui.svgIcon(ui.ICON.clue)),
-          h('p', null, h('strong', null, 'Clue: '), it.clue));
-      }
-      return h('button', { type: 'button', class: 'btn btn-secondary btn-clue', on: { click: showClue } },
-        ui.svgIcon(ui.ICON.clue), 'Show a clue');
-    }
-
-    function panelContent() {
-      var it = item();
-      return [
-        stepLabel('Situation ' + (index + 1) + ' of ' + items.length),
-        title(it.title),
-        story(it.story),
-        clueBlock(),
-        h('p', { class: 'question' }, 'Does this look safe or suspicious?'),
-        h('div', { class: 'choices choices--two' },
-          choice('Looks safe', null, { icon: ui.ICON.check, key: '1', onClick: function () { decide('safe'); } }),
-          choice('Looks suspicious', null, { icon: ui.ICON.shield, key: '2', tone: 'alert', onClick: function () { decide('suspicious'); } }))
-      ];
-    }
-
-    function showClue() {
-      if (clueShown || answered) return;
-      clueShown = true;
-      ctx.audio.play('select');
-      var old = slots.panel.querySelector('.btn-clue');
-      if (old) old.replaceWith(clueBlock());
-      ui.focus(slots.panel, '.choice');
-    }
-
-    function decide(answer) {
-      if (answered) return;
-      answered = true;
-      var it = item();
-      var outcome = it.outcomes[answer];
-      var correct = answer === it.answer;
-      if (correct) correctCount++;
-      ctx.game.award(outcome.points, it.title + (correct ? ': spotted correctly' : ': missed'));
-      ctx.game.applyEffects(outcome.effects);
-      ctx.game.recordDecision({ mission: 0, id: it.id, grade: correct ? 'best' : 'wrong', malicious: it.truth === 'malicious', contained: !!outcome.contained });
-      ctx.audio.play(correct ? 'success' : 'error');
-      ctx.nexus.say(correct ? pick(PRAISE, index) : pick(COMFORT, index), correct ? 'happy' : 'calm');
-      ui.announce((correct ? 'Correct. ' : 'Not quite. ') + outcome.text);
-
-      if (scene) scene.resolve(it.visual.focus, outcome.node);
-      if (it.visual.type === 'email') {
-        ui.clear(slots.visual);
-        slots.visual.appendChild(emailCard(it.visual, answer === 'suspicious' ? 'blocked' : 'delivered'));
-      }
-      var last = index === items.length - 1;
-      replacePanel(slots, [
-        stepLabel('Situation ' + (index + 1) + ' of ' + items.length),
-        title(it.title),
-        ui.feedback(correct ? 'good' : 'bad', outcome.text, outcome.points),
-        continueButton(last ? 'Finish mission' : 'Next situation', next)
-      ]);
-      ctx.progress((index + 1) / items.length);
+      var c = it.choices.filter(function (x) { return x.id === choiceId; })[0];
+      if (!c) return;
+      st.answer = choiceId;
+      st.found = it.clues.map(function () { return true; }); // reveal everything after deciding
+      if (c.grade === 'best') correctCount++;
+      ctx.game.award(c.points, { k: 'ledger.m1', v: { title: it.title, grade: { t: 'grade.' + c.grade } } });
+      ctx.game.applyEffects(c.effects);
+      ctx.game.recordDecision({ mission: 0, id: it.id, grade: c.grade, malicious: it.truth === 'malicious', contained: !!c.contained });
+      var tone = ui.toneForGrade(c.grade);
+      ctx.audio.play(tone === 'good' ? (c.contained ? 'stop' : 'success') : tone === 'bad' ? 'error' : 'process');
+      ctx.nexus.say((tone === 'good' ? 'nx.praise.' : 'nx.comfort.') + (st.index % 3), null, tone === 'good' ? 'happy' : 'calm');
+      render();
+      if (scene && c.contained) scene.burst(it.visual.focus);
+      ui.announce(L(c.feedback));
+      ctx.progress((st.index + 1) / items.length);
       ctx.disarmHint();
       ui.focus(ctx.stage, '.btn-continue');
     }
 
     function next() {
-      if (!answered) return;
-      if (scene) { scene.destroy(); scene = null; }
-      if (index < items.length - 1) show(index + 1);
+      if (!st.answer) return;
+      if (st.index < items.length - 1) show(st.index + 1);
       else ctx.complete({ correct: correctCount, total: items.length });
     }
 
     return {
       start: function () { show(0); },
+      render: render,
       destroy: function () { if (scene) scene.destroy(); },
       onKey: function (key) {
-        if (answered) return;
-        if (key === '1') decide('safe');
-        else if (key === '2') decide('suspicious');
-        else if (key === 'c') showClue();
+        if (st.answer) return;
+        var n = Number(key);
+        if (n >= 1 && n <= item().choices.length) decide(item().choices[n - 1].id);
+        else if (key === 'c') nextClue();
       },
       hint: function () {
-        if (answered) return 'Press Continue when you are ready.';
-        return clueShown ? 'Ask yourself: is there a good reason for this? If not, it is probably suspicious.' : 'Not sure? Tap “Show a clue”. It might explain everything.';
+        if (st.answer) return 'hint.continue';
+        return st.found.filter(Boolean).length ? 'hint.m1.clues' : 'hint.m1.noClues';
       }
     };
   }
@@ -218,192 +239,341 @@
 
   function mission2(ctx) {
     var examples = S.training;
-    var labels = {};
-    var index = 0;
-    var phase = 'label';      // label | ready | training | done
-    var busy = false;
-    var lastLabelAt = 0;
+    var st = {
+      phase: 'label',     // label | ready | training | testing | done
+      labels: {},
+      order: [],          // labelled ids, for undo
+      lastBin: null,      // bin that just received a card (for a small bump)
+      learned: 0,         // training animation progress (0..8)
+      shown: 0,           // testing animation progress (0..6)
+      result: null,
+      labelCorrect: 0
+    };
+    var drag = null;
 
-    function exampleCard(ex) {
-      return h('div', { class: 'example' },
+    function current() { return examples[st.order.length]; }
+    function count(label) { return st.order.filter(function (id) { return st.labels[id] === label; }).length; }
+    function byId(list, id) { return list.filter(function (x) { return x.id === id; })[0]; }
+
+    function card(ex, extra) {
+      return h('div', { class: 'example' + (extra || '') },
         h('span', { class: 'example-icon' }, ui.svgIcon(ex.icon === 'upload' ? ui.ICON.upload : ui.ICON.login)),
-        h('p', { class: 'example-kind' }, ex.icon === 'upload' ? 'Data being sent' : 'Someone logging in'),
-        h('h3', { class: 'example-title' }, ex.title),
-        h('ul', { class: 'example-clues' }, ex.clues.map(function (c) { return h('li', null, c); })));
+        h('p', { class: 'example-kind' }, T(ex.icon === 'upload' ? 'm2.kindUpload' : 'm2.kindLogin')),
+        h('h3', { class: 'example-title' }, L(ex.title)),
+        h('ul', { class: 'example-clues' }, ex.clues.map(function (c) { return h('li', null, L(c)); })));
     }
 
-    function dots() {
-      return h('ol', { class: 'label-dots', 'aria-label': 'Your labels so far' }, examples.map(function (ex, i) {
-        var l = labels[ex.id];
-        return h('li', {
-          class: 'label-dot' + (l ? ' is-' + l : '') + (i === index && phase === 'label' ? ' is-current' : ''),
-          'aria-label': 'Example ' + (i + 1) + ': ' + (l === 'benign' ? 'safe' : l === 'malicious' ? 'suspicious' : 'not labeled yet')
-        });
+    function bins(contents) {
+      return h('div', { class: 'bins' }, ['benign', 'malicious'].map(function (label) {
+        return h('div', {
+          class: 'bin bin--' + label + (st.lastBin === label ? ' is-bumped' : ''),
+          data: { bin: label }
+        },
+          h('p', { class: 'bin-title' }, h('span', { class: 'bin-icon' }, ui.svgIcon(label === 'benign' ? ui.ICON.check : ui.ICON.shield)),
+            T(label === 'benign' ? 'm2.safe' : 'm2.suspicious')),
+          contents ? contents(label) : h('p', { class: 'bin-count' }, T('m2.binCount', { n: count(label) })));
       }));
     }
 
-    function showExample(i) {
-      index = i;
-      phase = 'label';
-      var ex = examples[i];
-      layout(ctx, exampleCard(ex), [
-        stepLabel('Example ' + (i + 1) + ' of ' + examples.length),
-        title('Is this safe or suspicious?'),
-        story('Your answer teaches the AI. There is no score yet, so go with your best judgment.'),
+    function dots() {
+      return h('ol', { class: 'label-dots', 'aria-hidden': 'true' }, examples.map(function (ex, i) {
+        var l = st.labels[ex.id];
+        return h('li', { class: 'label-dot' + (l ? ' is-' + l : '') + (i === st.order.length && st.phase === 'label' ? ' is-current' : '') });
+      }));
+    }
+
+    function render() {
+      if (st.phase === 'label') return renderLabel();
+      if (st.phase === 'ready') return renderReady();
+      if (st.phase === 'training') return renderTraining();
+      if (st.phase === 'testing') return renderTesting();
+      return renderDone();
+    }
+
+    function renderLabel() {
+      var ex = current();
+      var i = st.order.length;
+      var dragCard = card(ex, ' is-draggable');
+      dragCard.setAttribute('aria-label', T('m2.cardAria', { title: L(ex.title) }));
+      dragCard.setAttribute('role', 'group');
+      layout(ctx, [h('div', { class: 'deck' }, dragCard), bins()], [
+        stepLabel(T('q.example', { n: i + 1, total: examples.length })),
+        title(T('m2.question')),
+        story(T('m2.instructions')),
         h('div', { class: 'choices choices--two' },
-          choice('Safe', null, { icon: ui.ICON.check, key: '1', onClick: function () { label('benign'); } }),
-          choice('Suspicious', null, { icon: ui.ICON.shield, key: '2', tone: 'alert', onClick: function () { label('malicious'); } })),
+          choice(T('m2.putSafe'), { key: '1', icon: ui.ICON.check, onClick: function () { label('benign'); } }),
+          choice(T('m2.putSuspicious'), { key: '2', icon: ui.ICON.shield, tone: 'alert', onClick: function () { label('malicious'); } })),
         dots(),
-        i > 0 ? h('button', { type: 'button', class: 'btn btn-link', on: { click: back } }, 'Go back') : null
+        i > 0 ? h('button', { type: 'button', class: 'btn btn-link', on: { click: undo } }, T('m2.undo')) : null
       ]);
-      ctx.progress(i / (examples.length + 2));
-      ctx.armHint();
-      ui.focus(ctx.stage, '.choice');
+      enableDrag(dragCard);
+      st.lastBin = null;
+    }
+
+    /* Drag and drop with pointer events (mouse, pen and touch). */
+    function enableDrag(node) {
+      node.addEventListener('pointerdown', function (e) {
+        if (e.button !== 0 && e.pointerType === 'mouse') return;
+        var rect = node.getBoundingClientRect();
+        drag = { node: node, startX: e.clientX, startY: e.clientY, moved: false, rect: rect, over: null };
+        node.setPointerCapture(e.pointerId);
+      });
+      node.addEventListener('pointermove', function (e) {
+        if (!drag || drag.node !== node) return;
+        var dx = e.clientX - drag.startX, dy = e.clientY - drag.startY;
+        if (!drag.moved && Math.abs(dx) + Math.abs(dy) < 6) return;
+        drag.moved = true;
+        node.classList.add('is-dragging');
+        node.style.transform = 'translate(' + dx + 'px,' + dy + 'px) rotate(' + Math.max(-6, Math.min(6, dx / 30)) + 'deg)';
+        var over = binAt(e.clientX, e.clientY);
+        if (over !== drag.over) {
+          ctx.stage.querySelectorAll('.bin').forEach(function (b) { b.classList.toggle('is-over', b.dataset.bin === over); });
+          drag.over = over;
+        }
+      });
+      function end(e) {
+        if (!drag || drag.node !== node) return;
+        var over = drag.moved ? binAt(e.clientX, e.clientY) : null;
+        var moved = drag.moved;
+        drag = null;
+        ctx.stage.querySelectorAll('.bin').forEach(function (b) { b.classList.remove('is-over'); });
+        if (over) { label(over); return; }
+        node.classList.remove('is-dragging');
+        node.style.transform = '';
+        if (moved) ctx.audio.play('select');
+      }
+      node.addEventListener('pointerup', end);
+      node.addEventListener('pointercancel', end);
+    }
+
+    function binAt(x, y) {
+      var hit = null;
+      ctx.stage.querySelectorAll('.bin').forEach(function (b) {
+        var r = b.getBoundingClientRect();
+        if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) hit = b.dataset.bin;
+      });
+      return hit;
     }
 
     function label(value) {
-      if (phase !== 'label' || busy) return;
-      // Ignore accidental double clicks on the same spot.
-      var now = Date.now();
-      if (now - lastLabelAt < 250) return;
-      lastLabelAt = now;
-      labels[examples[index].id] = value;
+      if (st.phase !== 'label') return;
+      var ex = current();
+      if (!ex) return;
+      st.labels[ex.id] = value;
+      st.order.push(ex.id);
+      ctx.audio.play('drop');
+      if (st.order.length === 1) ctx.nexus.say('nx.m2.drop', null, 'happy');
+      if (st.order.length === examples.length) {
+        st.phase = 'ready';
+        ctx.nexus.say('nx.m2.ready', null, 'happy');
+      }
+      render();
+      st.lastBin = value;
+      var bin = ctx.stage.querySelector('.bin--' + value);
+      if (bin) { bin.classList.add('is-bumped'); }
+      ctx.progress(st.order.length / (examples.length + 3));
+      ctx.armHint();
+      ui.focus(ctx.stage, st.phase === 'ready' ? '.btn-big' : '.choice');
+    }
+
+    function undo() {
+      if (st.phase !== 'label' && st.phase !== 'ready') return;
+      var id = st.order.pop();
+      if (!id) return;
+      delete st.labels[id];
+      st.phase = 'label';
       ctx.audio.play('select');
-      if (index < examples.length - 1) showExample(index + 1);
-      else showReady();
+      render();
+      ui.focus(ctx.stage, '.choice');
     }
 
-    function back() {
-      if (phase === 'label' && index > 0) showExample(index - 1);
-      else if (phase === 'ready') showExample(examples.length - 1);
+    function chipBins() {
+      return bins(function (label) {
+        return h('ul', { class: 'chips' }, st.order.filter(function (id) { return st.labels[id] === label; }).map(function (id) {
+          var idx = examples.findIndex(function (e) { return e.id === id; });
+          return h('li', { class: 'chip' + (st.phase === 'training' && st.learned > st.order.indexOf(id) ? ' is-learned' : '') }, L(examples[idx].title));
+        }));
+      });
     }
 
-    function showReady() {
-      phase = 'ready';
-      var safe = examples.filter(function (e) { return labels[e.id] === 'benign'; }).length;
-      layout(ctx, h('div', { class: 'ai-brain' },
-        h('div', { class: 'brain-grid' }, examples.map(function (ex) {
-          return h('span', { class: 'brain-chip is-' + labels[ex.id] }, labels[ex.id] === 'benign' ? 'Safe' : 'Suspicious');
-        })),
-        h('p', { class: 'brain-caption' }, 'Your 8 examples')), [
-        stepLabel('Ready to train'),
-        title('Time to teach the AI!'),
-        story('You labeled ' + safe + ' examples as safe and ' + (examples.length - safe) + ' as suspicious. The AI will learn only from your answers.'),
-        h('div', { class: 'choices' },
-          h('button', { type: 'button', class: 'btn btn-primary btn-big', on: { click: train } }, 'Train the AI')),
-        h('button', { type: 'button', class: 'btn btn-link', on: { click: back } }, 'Change my last answer')
+    function renderReady() {
+      layout(ctx, [chipBins()], [
+        stepLabel(T('m2.readyStep')),
+        title(T('m2.readyTitle')),
+        story(T('m2.readyText', { safe: count('benign'), sus: count('malicious') })),
+        h('div', { class: 'choices' }, h('button', { type: 'button', class: 'btn btn-primary btn-big', on: { click: train } }, T('m2.train'))),
+        h('button', { type: 'button', class: 'btn btn-link', on: { click: undo } }, T('m2.undo'))
       ]);
-      ctx.nexus.say('I’m ready to learn. Teach me!', 'happy');
-      ctx.progress((examples.length) / (examples.length + 2));
-      ui.focus(ctx.stage, '.btn-big');
+    }
+
+    function brain() {
+      var pct = Math.round((st.learned / examples.length) * 100);
+      return h('div', { class: 'brain' + (st.phase === 'training' ? ' is-learning' : '') },
+        h('div', { class: 'brain-ring', style: '--p:' + pct },
+          h('div', { class: 'brain-core', 'aria-hidden': 'true' }, robotFace())),
+        h('p', { class: 'brain-caption' }, T('m2.brainCaption')));
+    }
+
+    function renderTraining() {
+      var b = brain();
+      var pct = st.learned / examples.length;
+      layout(ctx, [b, chipBins()], [
+        stepLabel(T('m2.trainingStep')),
+        title(T('m2.trainingTitle')),
+        story(T('m2.trainingText')),
+        h('div', { class: 'train-track', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(Math.round(pct * 100)) },
+          h('span', { class: 'train-fill', style: 'transform:scaleX(' + pct + ')' }))
+      ]);
+    }
+
+    function testTile(row, fresh) {
+      var q = byId(S.testSet, row.id);
+      return h('li', { class: 'test-chip ' + (row.correct ? 'is-right' : 'is-wrong') + (fresh ? ' is-new' : '') },
+        h('span', { class: 'test-mark', 'aria-hidden': 'true' }, ui.svgIcon(row.correct ? ui.ICON.check : ui.ICON.cross)),
+        h('span', null, L(q.title)));
+    }
+
+    function renderTesting() {
+      var rows = st.result.rows.slice(0, st.shown);
+      var nextQ = st.shown < st.result.rows.length ? byId(S.testSet, st.result.rows[st.shown].id) : null;
+      layout(ctx, [
+        h('div', { class: 'deck deck--test' }, nextQ ? h('div', { class: 'test-card' }, L(nextQ.title)) : null),
+        bins(function (label) {
+          return h('ul', { class: 'chips' }, rows.filter(function (r) { return r.prediction.label === label; }).map(function (r) {
+            return testTile(r, r === rows[rows.length - 1]);
+          }));
+        })
+      ], [
+        stepLabel(T('m2.trainingStep')),
+        title(T('m2.testingTitle')),
+        story(T('m2.testingText'))
+      ]);
     }
 
     function train() {
-      if (phase !== 'ready' || busy) return;
-      busy = true;
-      phase = 'training';
+      if (st.phase !== 'ready') return;
+      st.phase = 'training';
+      st.learned = 0;
       ctx.disarmHint();
-      var model = CQ.ai.trainKNN(examples.map(function (t) { return { id: t.id, x: t.x, label: labels[t.id] }; }), K);
-      var result = model.evaluate(S.testSet.map(function (q) { return { id: q.id, x: q.x, truth: q.truth }; }));
-      var labelCorrect = examples.filter(function (t) { return labels[t.id] === t.truth; }).length;
-
-      var fill = h('span', { class: 'train-fill' });
-      layout(ctx, h('div', { class: 'ai-brain is-learning' },
-        h('div', { class: 'brain-grid' }, examples.map(function (ex) {
-          return h('span', { class: 'brain-chip is-' + labels[ex.id] }, labels[ex.id] === 'benign' ? 'Safe' : 'Suspicious');
-        })),
-        h('p', { class: 'brain-caption' }, 'Comparing patterns…')), [
-        stepLabel('Training'),
-        title('The AI is learning…'),
-        story('It is studying your 8 examples so it can recognize similar ones later.'),
-        h('div', { class: 'train-track', role: 'progressbar', 'aria-label': 'Training progress' }, fill)
-      ]);
-      ctx.nexus.say('Learning from your examples…', 'busy');
+      var model = CQ.ai.trainKNN(examples.map(function (t) { return { id: t.id, x: t.x, label: st.labels[t.id] }; }), K);
+      st.result = model.evaluate(S.testSet.map(function (q) { return { id: q.id, x: q.x, truth: q.truth }; }));
+      st.labelCorrect = examples.filter(function (t) { return st.labels[t.id] === t.truth; }).length;
+      ctx.nexus.say('nx.m2.learning', null, 'busy');
       ctx.audio.play('process');
-      var steps = 20, i = 0;
-      var duration = ui.reducedMotion() ? 0 : 1600;
-      function finish() {
-        busy = false;
-        score(result, labelCorrect);
-        showResults(result, labelCorrect, model);
-      }
-      if (!duration) { finish(); return; }
-      var id = ctx.clock.every(duration / steps, function () {
-        i++;
-        fill.style.transform = 'scaleX(' + (i / steps) + ')';
-        if (i % 5 === 0) ctx.audio.play('tick');
-        if (i >= steps) { ctx.clock.cancel(id); ctx.clock.after(200, finish); }
+      var fast = ui.reducedMotion();
+      render();
+      var id = ctx.clock.every(fast ? 1 : 190, function () {
+        st.learned++;
+        if (st.learned % 2 === 0) ctx.audio.play('tick');
+        render();
+        if (st.learned >= examples.length) {
+          ctx.clock.cancel(id);
+          ctx.clock.after(fast ? 1 : 350, startTesting);
+        }
       });
     }
 
-    function score(result, labelCorrect) {
-      ctx.game.award(labelCorrect * LABEL_POINTS, 'Teaching: ' + labelCorrect + ' of 8 examples labeled like an expert');
-      ctx.game.award(result.correct * TEST_POINTS, 'AI test: ' + result.correct + ' of ' + result.total + ' new examples right');
+    function startTesting() {
+      st.phase = 'testing';
+      st.shown = 0;
+      ctx.nexus.say('nx.m2.testing', null, 'busy');
+      render();
+      var fast = ui.reducedMotion();
+      var id = ctx.clock.every(fast ? 1 : 650, function () {
+        st.shown++;
+        var row = st.result.rows[st.shown - 1];
+        ctx.audio.play(row && row.correct ? 'drop' : 'error');
+        render();
+        if (st.shown >= st.result.rows.length) {
+          ctx.clock.cancel(id);
+          ctx.clock.after(fast ? 1 : 700, finish);
+        }
+      });
+      ctx.progress((examples.length + 1) / (examples.length + 3));
+    }
+
+    function finish() {
+      st.phase = 'done';
+      var r = st.result;
+      ctx.game.award(st.labelCorrect * LABEL_POINTS, { k: 'ledger.labels', v: { n: st.labelCorrect } });
+      ctx.game.award(r.correct * TEST_POINTS, { k: 'ledger.aiTest', v: { n: r.correct, total: r.total } });
       examples.forEach(function (t) {
-        ctx.game.recordDecision({ mission: 1, id: 'label-' + t.id, grade: labels[t.id] === t.truth ? 'best' : 'wrong', malicious: false });
+        ctx.game.recordDecision({ mission: 1, id: 'label-' + t.id, grade: st.labels[t.id] === t.truth ? 'best' : 'wrong', malicious: false });
       });
-      ctx.game.recordModel({ correct: result.correct, total: result.total, accuracy: result.accuracy, labelCorrect: labelCorrect, labelTotal: 8,
-        falsePositives: result.falsePositives, falseNegatives: result.falseNegatives });
-      ctx.audio.play(result.correct >= 5 ? 'success' : 'process');
-    }
-
-    function explainMiss(row) {
-      var q = S.testSet.filter(function (x) { return x.id === row.id; })[0];
-      var wrongNeighbor = row.prediction.neighbors.map(function (n) {
-        return examples.filter(function (e) { return e.id === n.id; })[0];
-      }).filter(function (e) { return labels[e.id] !== e.truth; })[0];
-      if (wrongNeighbor) {
-        return 'It got “' + q.title + '” wrong because you labeled a similar example, “' + wrongNeighbor.title + '”, as ' +
-          (labels[wrongNeighbor.id] === 'benign' ? 'safe' : 'suspicious') + '.';
-      }
-      return 'It got “' + q.title + '” wrong. It looked like examples from both groups, so the AI had to guess.';
-    }
-
-    function showResults(result, labelCorrect) {
-      phase = 'done';
-      var tiles = result.rows.map(function (row) {
-        var q = S.testSet.filter(function (x) { return x.id === row.id; })[0];
-        var said = row.prediction.label === 'malicious' ? 'Suspicious' : 'Safe';
-        return h('li', { class: 'test-tile ' + (row.correct ? 'is-right' : 'is-wrong') },
-          h('span', { class: 'test-mark' }, ui.svgIcon(row.correct ? ui.ICON.check : ui.ICON.cross)),
-          h('span', { class: 'test-title' }, q.title),
-          h('span', { class: 'test-said' }, 'AI said: ', h('strong', null, said)),
-          h('span', { class: 'test-sure' }, row.prediction.unanimous ? 'Very sure' : 'Not sure'));
-      });
-      var misses = result.rows.filter(function (r) { return !r.correct; });
-      var headline = result.correct === result.total
-        ? 'Perfect! Your examples taught it well.'
-        : misses.length === 1 ? explainMiss(misses[0]) : 'Wrong examples teach the AI wrong lessons. ' + explainMiss(misses[0]);
-
-      layout(ctx, h('div', { class: 'test-board' },
-        h('p', { class: 'test-board-title' }, 'The AI’s answers on new examples'),
-        h('ul', { class: 'test-grid' }, tiles)), [
-        stepLabel('Results'),
-        title('You helped train the AI!'),
-        h('p', { class: 'big-stat' }, h('span', { class: 'big-stat-num' }, result.correct + ' out of ' + result.total),
-          h('span', { class: 'big-stat-text' }, 'new examples right. The AI had never seen these before.')),
-        story(headline),
-        h('p', { class: 'small-note' }, 'You labeled ' + labelCorrect + ' of 8 examples the way security experts would.'),
-        ui.feedback(result.correct >= 5 ? 'good' : 'okay', 'An AI is only as good as the examples it learns from. That is why people who understand security are needed to train it.', labelCorrect * LABEL_POINTS + result.correct * TEST_POINTS, 'What this shows'),
-        continueButton('Finish mission', function () { ctx.complete({ correct: result.correct, total: result.total }); })
-      ]);
-      ctx.nexus.say(result.correct >= 5 ? 'Thanks, teacher! I learned a lot from you.' : 'I learned what you taught me, even the mistakes!', 'happy');
+      ctx.game.recordModel({ correct: r.correct, total: r.total, accuracy: r.accuracy, labelCorrect: st.labelCorrect, labelTotal: 8,
+        falsePositives: r.falsePositives, falseNegatives: r.falseNegatives });
+      ctx.audio.play(r.correct >= 5 ? 'success' : 'process');
+      ctx.nexus.say(r.correct >= 5 ? 'nx.m2.doneGood' : 'nx.m2.doneMixed', null, 'happy');
       ctx.progress(1);
+      render();
+      ui.announce(T('m2.outOf', { n: r.correct, total: r.total }) + ' ' + T('m2.outOfText'));
       ui.focus(ctx.stage, '.challenge-title');
     }
 
+    function explainMiss(row) {
+      var q = byId(S.testSet, row.id);
+      var wrong = row.prediction.neighbors.map(function (n) { return byId(examples, n.id); })
+        .filter(function (e) { return st.labels[e.id] !== e.truth; })[0];
+      if (wrong) {
+        return T('m2.missBecause', { test: L(q.title), train: L(wrong.title), bin: T(st.labels[wrong.id] === 'benign' ? 'm2.safe' : 'm2.suspicious') });
+      }
+      return T('m2.missGuess', { test: L(q.title) });
+    }
+
+    function renderDone() {
+      var r = st.result;
+      var misses = r.rows.filter(function (x) { return !x.correct; });
+      var explanation = r.correct === r.total ? T('m2.perfect')
+        : misses.length === 1 ? explainMiss(misses[0]) : T('m2.wrongLessons') + ' ' + explainMiss(misses[0]);
+      var tiles = r.rows.map(function (row) {
+        var q = byId(S.testSet, row.id);
+        return h('li', { class: 'test-tile ' + (row.correct ? 'is-right' : 'is-wrong') },
+          h('span', { class: 'test-mark' }, ui.svgIcon(row.correct ? ui.ICON.check : ui.ICON.cross)),
+          h('span', { class: 'test-title' }, L(q.title)),
+          h('span', { class: 'test-said' }, T('m2.aiSaid') + ' ', h('strong', null, T(row.prediction.label === 'malicious' ? 'm2.suspicious' : 'm2.safe'))),
+          h('span', { class: 'test-sure' }, T(row.prediction.unanimous ? 'm2.verySure' : 'm2.notSure')));
+      });
+      layout(ctx, h('div', { class: 'test-board' },
+        h('p', { class: 'test-board-title' }, T('m2.boardTitle')),
+        h('ul', { class: 'test-grid' }, tiles)), [
+        stepLabel(T('m2.resultsStep')),
+        title(T('m2.resultsTitle')),
+        h('p', { class: 'big-stat' }, h('span', { class: 'big-stat-num' }, T('m2.outOf', { n: r.correct, total: r.total })),
+          h('span', { class: 'big-stat-text' }, T('m2.outOfText'))),
+        story(explanation),
+        h('p', { class: 'small-note' }, T('m2.labeled', { n: st.labelCorrect })),
+        ui.feedback(r.correct >= 5 ? 'good' : 'okay', T('m2.showsText'), st.labelCorrect * LABEL_POINTS + r.correct * TEST_POINTS, T('m2.shows')),
+        continueButton(T('btn.finish'), function () { ctx.complete({ correct: r.correct, total: r.total }); })
+      ]);
+    }
+
     return {
-      start: function () { showExample(0); },
-      destroy: function () {},
+      start: function () { render(); ctx.armHint(); ui.focus(ctx.stage, '.choice'); },
+      render: render,
+      destroy: function () { drag = null; },
       onKey: function (key) {
-        if (phase === 'label') { if (key === '1') label('benign'); else if (key === '2') label('malicious'); }
+        if (st.phase === 'label') { if (key === '1') label('benign'); else if (key === '2') label('malicious'); }
       },
       hint: function () {
-        if (phase === 'label') return 'Look at the clues together. A big upload to a trusted partner is normal. A blocked website is not.';
-        if (phase === 'ready') return 'Press “Train the AI” to see what it learned.';
-        return 'Press Finish mission when you are ready.';
+        if (st.phase === 'label') return 'hint.m2.label';
+        if (st.phase === 'ready') return 'hint.m2.ready';
+        return 'hint.continue';
       }
     };
+  }
+
+  function robotFace() {
+    var ns = 'http://www.w3.org/2000/svg';
+    var s = document.createElementNS(ns, 'svg');
+    s.setAttribute('viewBox', '0 0 48 48');
+    s.setAttribute('aria-hidden', 'true');
+    [['rect', { x: 8, y: 12, width: 32, height: 26, rx: 10 }], ['circle', { cx: 18.5, cy: 25, r: 3 }],
+      ['circle', { cx: 29.5, cy: 25, r: 3 }], ['path', { d: 'M24 12V6M20 6h8' }]].forEach(function (d) {
+      var n = document.createElementNS(ns, d[0]);
+      Object.keys(d[1]).forEach(function (k) { n.setAttribute(k, d[1][k]); });
+      s.appendChild(n);
+    });
+    return s;
   }
 
   /* ------------------------------------------------------------------ */
@@ -411,42 +581,79 @@
   /* ------------------------------------------------------------------ */
   function mission3(ctx) {
     var items = S.mission3.map(function (it) { return Object.assign({}, it, { analysis: CQ.ai.analyze(it.telemetry) }); });
-    var index = 0;
-    var answered = false;
-    var slots = null;
+    var st = { index: 0, found: [], follow: null };
     var scene = null;
 
-    function current() { return items[index]; }
+    function current() { return items[st.index]; }
     function aiBand(it) { return it.analysis.band === 'contain' ? 'contain' : 'allow'; }
     function otherBand(b) { return b === 'contain' ? 'allow' : 'contain'; }
+    function answered() { return st.follow !== null; }
 
-    function show(i) {
-      index = i;
-      answered = false;
+    function sceneModel() {
+      var it = current(), v = it.visual;
+      var devices = {};
+      var outcome = answered() ? it.outcomes[st.follow ? aiBand(it) : otherBand(aiBand(it))] : null;
+      devices[v.focus] = { state: outcome ? outcome.node : 'alert', tag: outcome ? null : L(v.tag) };
+      it.clues.forEach(function (c, i) {
+        var d = devices[c.at] || (devices[c.at] = {});
+        d.clue = st.found[i] ? 'found' : 'pending';
+        d.clickable = !st.found[i] && !answered();
+      });
+      return { devices: devices, flow: outcome ? null : { from: v.from, to: v.to, tone: 'warn' } };
+    }
+
+    function render() {
       var it = current();
-      var rec = it.actions[aiBand(it)];
-      var box = sceneBox();
+      if (scene) { scene.destroy(); scene = null; }
+      var band = aiBand(it);
       var aiSays = h('div', { class: 'ai-says' },
         h('div', { class: 'ai-says-head' },
-          h('span', { class: 'ai-says-label' }, 'NEXUS suggests'),
-          h('span', { class: 'ai-says-sure' }, 'How sure? ' + confidenceWords(it.analysis.confidence))),
-        h('p', { class: 'ai-says-action' }, rec));
-      slots = layout(ctx, [box, aiSays], [
-        stepLabel('Case ' + (i + 1) + ' of ' + items.length),
-        title(it.title),
-        story(it.story),
-        h('div', { class: 'clue is-open' },
-          h('span', { class: 'clue-icon' }, ui.svgIcon(ui.ICON.clue)),
-          h('div', null, h('strong', null, 'Clues the AI can’t see'),
-            h('ul', { class: 'clue-list' }, it.clues.map(function (c) { return h('li', null, c); })))),
-        h('p', { class: 'question' }, 'Do you agree with the AI?'),
-        h('div', { class: 'choices choices--two' },
-          choice('Yes, follow the AI', rec, { key: '1', onClick: function () { decide(true); } }),
-          choice('No, choose differently', it.actions[otherBand(aiBand(it))], { key: '2', onClick: function () { decide(false); } }))
-      ]);
-      scene = CQ.network.create(box);
-      scene.show({ from: it.visual.from, to: it.visual.to, focus: it.visual.focus, tag: it.visual.tag, state: 'alert' });
-      ctx.nexus.say(i === 0 ? 'I’m not always right. Check the clues before deciding!' : 'Here’s my suggestion. Do you agree?');
+          h('span', { class: 'ai-says-label' }, T('m3.suggests')),
+          h('span', { class: 'ai-says-sure' }, T('m3.howSure', { x: confidenceWords(it.analysis.confidence) }))),
+        h('p', { class: 'ai-says-action' }, L(it.actions[band])));
+      var box = clueBox(it.clues, st.found, { titleKey: 'clues.aiCantSee', onMore: nextClue, locked: answered() });
+      var panel = [stepLabel(T('q.case', { n: st.index + 1, total: items.length })), title(L(it.title))];
+      if (!answered()) {
+        panel.push(story(L(it.situation)), aiSays, question(T('m3.question')),
+          h('div', { class: 'choices choices--two' },
+            choice(T('m3.yes'), { key: '1', sub: L(it.actions[band]), onClick: function () { decide(true); } }),
+            choice(T('m3.no'), { key: '2', sub: L(it.actions[otherBand(band)]), onClick: function () { decide(false); } })));
+      } else {
+        var chosenBand = st.follow ? band : otherBand(band);
+        var outcome = it.outcomes[chosenBand];
+        var correct = chosenBand === it.correctBand, aiRight = band === it.correctBand;
+        var heading = correct ? (aiRight ? T('fb.good') : T('m3.caught')) : (aiRight ? T('m3.aiRightWrongChoice') : T('m3.bothWrong'));
+        panel.push(aiSays, ui.feedback(correct ? 'good' : 'bad', L(outcome.text), outcome.points, heading),
+          continueButton(T(st.index === items.length - 1 ? 'btn.finish' : 'btn.nextCase'), next));
+      }
+      layout(ctx, [h('div', { class: 'scene-host' }), box], panel);
+      scene = CQ.network.create(ctx.stage.querySelector('.scene-host'));
+      scene.onClick(function (id) {
+        var idx = it.clues.findIndex(function (c, i) { return c.at === id && !st.found[i]; });
+        if (idx >= 0) findClue(idx);
+      });
+      scene.update(sceneModel());
+    }
+
+    function findClue(i) {
+      if (answered() || st.found[i]) return;
+      st.found[i] = true;
+      ctx.audio.play('clue');
+      ctx.nexus.say(current().clues.every(function (c, k) { return st.found[k]; }) ? 'nx.allClues' : 'nx.clue', null, 'happy');
+      render();
+      ui.focus(ctx.stage, '.cluebox');
+      ctx.armHint();
+    }
+
+    function nextClue() {
+      var idx = current().clues.findIndex(function (c, i) { return !st.found[i]; });
+      if (idx >= 0) findClue(idx);
+    }
+
+    function show(i) {
+      st = { index: i, found: [], follow: null };
+      render();
+      ctx.nexus.say(i === 0 ? 'nx.m3.first' : 'nx.m3.next');
       ctx.audio.play('alert');
       ctx.progress(i / items.length);
       ctx.armHint();
@@ -455,62 +662,49 @@
 
     function decide(follow) {
       var it = current();
-      if (!it || answered) return;
-      answered = true;
+      if (answered()) return;
+      st.follow = follow;
+      st.found = it.clues.map(function () { return true; });
       var recommended = aiBand(it);
-      var chosen = follow ? recommended : otherBand(recommended);
-      var outcome = it.outcomes[chosen];
-      var correct = chosen === it.correctBand;
+      var chosenBand = follow ? recommended : otherBand(recommended);
+      var outcome = it.outcomes[chosenBand];
+      var correct = chosenBand === it.correctBand;
       var aiRight = recommended === it.correctBand;
-
-      ctx.game.award(outcome.points, it.title + ': ' + (correct ? (aiRight ? 'trusted the AI when it was right' : 'caught the AI’s mistake') : (aiRight ? 'ignored the AI when it was right' : 'followed the AI when it was wrong')));
+      var reason = correct ? (aiRight ? 'ledger.m3.trusted' : 'ledger.m3.caught') : (aiRight ? 'ledger.m3.ignored' : 'ledger.m3.followedWrong');
+      ctx.game.award(outcome.points, { k: reason, v: { title: it.title } });
       ctx.game.applyEffects(outcome.effects);
       ctx.game.recordDecision({
         mission: 2, id: it.id, grade: correct ? 'best' : 'wrong',
-        malicious: it.truth === 'malicious', contained: it.truth === 'malicious' && chosen === 'contain',
+        malicious: it.truth === 'malicious', contained: it.truth === 'malicious' && chosenBand === 'contain',
         ai: { recommendedBest: aiRight, followed: follow, chosenWrong: !correct }
       });
-      scene.resolve(it.visual.focus, outcome.node);
-      ctx.audio.play(correct ? 'success' : 'error');
-
-      var heading = correct ? (aiRight ? 'Correct!' : 'You caught the AI’s mistake!') : (aiRight ? 'The AI was right this time' : 'The AI was wrong, and so was this choice');
-      if (correct && !aiRight) ctx.nexus.say('You were right and I was wrong. That’s why people check my work!', 'happy');
-      else if (correct) ctx.nexus.say('Teamwork! The clues agreed with me this time.', 'happy');
-      else if (aiRight) ctx.nexus.say('Disagree with me only when the clues give you a reason.', 'calm');
-      else ctx.nexus.say('I missed that one. The clues had the answer.', 'calm');
-      ui.announce(heading + ' ' + outcome.text);
-
-      var last = index === items.length - 1;
-      replacePanel(slots, [
-        stepLabel('Case ' + (index + 1) + ' of ' + items.length),
-        title(it.title),
-        ui.feedback(correct ? 'good' : 'bad', outcome.text, outcome.points, heading),
-        continueButton(last ? 'Finish mission' : 'Next case', next)
-      ]);
-      ctx.progress((index + 1) / items.length);
+      ctx.audio.play(correct ? (outcome.contained ? 'stop' : 'success') : 'error');
+      ctx.nexus.say(correct ? (aiRight ? 'nx.m3.team' : 'nx.m3.caught') : (aiRight ? 'nx.m3.ignored' : 'nx.m3.missed'), null, correct ? 'happy' : 'calm');
+      render();
+      if (scene && correct && outcome.contained) scene.burst(it.visual.focus);
+      ui.announce(L(outcome.text));
+      ctx.progress((st.index + 1) / items.length);
       ctx.disarmHint();
       ui.focus(ctx.stage, '.btn-continue');
     }
 
     function next() {
-      if (!answered) return;
-      if (scene) { scene.destroy(); scene = null; }
-      if (index < items.length - 1) show(index + 1);
+      if (!answered()) return;
+      if (st.index < items.length - 1) show(st.index + 1);
       else ctx.complete({});
     }
 
     return {
       start: function () { show(0); },
+      render: render,
       destroy: function () { if (scene) scene.destroy(); },
       onKey: function (key) {
-        if (answered) return;
+        if (answered()) return;
         if (key === '1') decide(true);
         else if (key === '2') decide(false);
+        else if (key === 'c') nextClue();
       },
-      hint: function () {
-        if (answered) return 'Press Continue when you are ready.';
-        return 'Do the clues explain what I saw? If they show something I missed, choose differently.';
-      }
+      hint: function () { return answered() ? 'hint.continue' : 'hint.m3'; }
     };
   }
 
@@ -523,48 +717,139 @@
 
   function mission4(ctx) {
     var conf = S.mission4;
-    var items = conf.incidents.map(function (it) {
+    var items = conf.incidents.map(function (it, i) {
       var analysis = CQ.ai.analyze(it.telemetry);
-      var nexusPick = it.options.filter(function (o) { return o.band === analysis.band; })[0] || null;
-      return Object.assign({}, it, { analysis: analysis, nexusPick: nexusPick ? nexusPick.id : null });
+      var pick = it.options.filter(function (o) { return o.band === analysis.band; })[0] || null;
+      return Object.assign({}, it, { order: i, analysis: analysis, nexusPick: pick ? pick.id : null });
     });
-    var index = 0;
-    var resolved = {};
-    var timeLeft = conf.duration;
-    var running = false;      // the clock runs only while a problem is waiting for a decision
+    var st = {
+      timeLeft: conf.duration,
+      queue: items.map(function (i) { return i.id; }),
+      open: [],              // problem ids currently on the network
+      resolved: {},          // id -> { option, contained }
+      phase: 'board',        // board | problem | feedback
+      selected: null,
+      lastResult: null       // { id, option }
+    };
     var ended = false;
-    var answered = false;
     var loopId = null;
     var lastTick = 0;
-    var lastWhole = -1;
-    var slots = null;
+    var lastShown = '';
     var scene = null;
     var offBreach = null;
 
-    function current() { return items[index]; }
+    function item(id) { return items.filter(function (x) { return x.id === id; })[0]; }
+    function running() { return !ended && st.phase !== 'feedback'; }
 
-    function isActiveThreat(it, i) {
-      if (it.truth !== 'malicious' || i > index) return false;
-      var r = resolved[it.id];
-      return !r || !r.contained;
+    function fillOpen(announce) {
+      var added = false;
+      while (st.open.length < conf.maxOpen && st.queue.length) {
+        var busy = st.open.map(function (id) { return item(id).at; });
+        var nextIdx = st.queue.findIndex(function (id) { return busy.indexOf(item(id).at) < 0; });
+        if (nextIdx < 0) break;
+        st.open.push(st.queue.splice(nextIdx, 1)[0]);
+        added = true;
+      }
+      if (added && announce) { ctx.audio.play('alert'); ctx.nexus.say('nx.m4.newProblem', null, 'alert'); }
     }
 
-    function drainRate() {
-      return items.reduce(function (sum, it, i) { return sum + (isActiveThreat(it, i) ? it.drain : 0); }, 0);
+    function activeThreats() {
+      return items.filter(function (it) {
+        if (it.truth !== 'malicious') return false;
+        if (st.open.indexOf(it.id) >= 0) return true;
+        var r = st.resolved[it.id];
+        return r && !r.contained;
+      });
+    }
+
+    function sceneModel() {
+      var devices = {};
+      // Settled devices first, then open problems on top.
+      Object.keys(st.resolved).forEach(function (id) {
+        var it = item(id), r = st.resolved[id];
+        devices[it.at] = { state: r.option.node || 'normal', tag: r.contained ? T('state.stopped') : null };
+      });
+      st.open.forEach(function (id) {
+        var it = item(id);
+        devices[it.at] = {
+          state: it.truth === 'malicious' ? 'danger' : 'alert',
+          tag: L(it.tag), flash: st.selected !== id, clickable: st.phase !== 'feedback', action: 'open'
+        };
+      });
+      var sel = st.selected ? item(st.selected) : null;
+      return { devices: devices, flow: sel && st.phase === 'problem' ? { from: sel.at, to: sel.at === 'database' ? 'internet' : 'server', tone: 'danger' } : null };
     }
 
     function hud() {
       var health = Math.round(ctx.game.state.integrity);
-      var urgent = timeLeft <= 10;
-      return h('div', { class: 'hud' + (urgent ? ' is-urgent' : '') },
+      return h('div', { class: 'hud' + (st.timeLeft <= 10 ? ' is-urgent' : '') + (activeThreats().length && running() ? ' is-draining' : '') },
         h('div', { class: 'hud-item' },
-          h('span', { class: 'hud-label' }, ui.svgIcon(ui.ICON.clock), 'Time left'),
-          h('span', { class: 'hud-value hud-time', role: 'timer' }, ui.formatTime(timeLeft * 1000 + 999))),
+          h('span', { class: 'hud-label' }, ui.svgIcon(ui.ICON.clock), T('m4.time')),
+          h('span', { class: 'hud-value hud-time', role: 'timer' }, ui.formatTime(st.timeLeft * 1000 + 999))),
         h('div', { class: 'hud-item hud-item--grow' },
-          h('span', { class: 'hud-label' }, ui.svgIcon(ui.ICON.shield), 'Network health'),
+          h('span', { class: 'hud-label' }, ui.svgIcon(ui.ICON.shield), T('m4.health')),
           h('div', { class: 'health' + (health < 40 ? ' is-low' : health < 70 ? ' is-mid' : '') },
             h('span', { class: 'health-fill', style: 'transform:scaleX(' + (health / 100) + ')' })),
           h('span', { class: 'hud-value hud-health' }, health + '%')));
+    }
+
+    function panelBoard() {
+      var list = st.open.map(function (id) {
+        var it = item(id);
+        return choice(T('m4.openProblem', { device: T('device.' + it.at), title: L(it.title) }), {
+          tone: it.truth === 'malicious' ? 'danger' : 'alert', icon: ui.ICON.shield,
+          onClick: function () { open(id); }
+        });
+      });
+      return [
+        stepLabel(T('q.problem', { n: Object.keys(st.resolved).length + 1, total: items.length })),
+        title(st.open.length ? T('m4.boardTitle', { n: st.open.length }) : T('m4.done')),
+        story(st.open.length ? T('m4.boardText') : T('m4.waiting')),
+        h('div', { class: 'choices choices--stack' }, list)
+      ];
+    }
+
+    function panelProblem() {
+      var it = item(st.selected);
+      return [
+        h('div', { class: 'panel-top' },
+          stepLabel(T('q.problem', { n: Object.keys(st.resolved).length + 1, total: items.length })),
+          st.open.length > 1 ? h('button', { type: 'button', class: 'btn btn-link btn-back', on: { click: backToBoard } }, T('btn.backToNetwork')) : null),
+        title(L(it.title)),
+        story(L(it.situation)),
+        h('div', { class: 'clue is-open' },
+          h('span', { class: 'clue-icon' }, ui.svgIcon(ui.ICON.clue)),
+          h('p', null, h('strong', null, T('clue') + ': '), L(it.clue))),
+        question(T('m4.question')),
+        h('div', { class: 'choices choices--stack' }, it.options.map(function (o, k) {
+          return choice(L(o.label), { key: String(k + 1), tag: o.id === it.nexusPick ? T('m4.nexusPick') : null, onClick: function () { decide(k); } });
+        }))
+      ];
+    }
+
+    function panelFeedback() {
+      var res = st.lastResult, it = item(res.id), o = res.option;
+      var tone = ui.toneForGrade(o.grade);
+      var done = Object.keys(st.resolved).length === items.length;
+      return [
+        stepLabel(T('q.problem', { n: Object.keys(st.resolved).length, total: items.length })),
+        title(L(it.title)),
+        ui.feedback(tone, L(o.text), o.points, o.contained && tone !== 'bad' ? T('m4.stopped') : null),
+        continueButton(T(done ? 'btn.seeHow' : 'btn.backToNetwork'), afterFeedback)
+      ];
+    }
+
+    function render() {
+      if (ended) return;
+      if (scene) { scene.destroy(); scene = null; }
+      var panel = st.phase === 'problem' ? panelProblem() : st.phase === 'feedback' ? panelFeedback() : panelBoard();
+      layout(ctx, [hud(), h('div', { class: 'scene-host' })], panel);
+      scene = CQ.network.create(ctx.stage.querySelector('.scene-host'));
+      scene.onClick(function (device) {
+        var id = st.open.filter(function (x) { return item(x).at === device; })[0];
+        if (id) open(id);
+      });
+      scene.update(sceneModel());
     }
 
     function updateHud() {
@@ -572,49 +857,38 @@
       if (old) old.replaceWith(hud());
     }
 
-    function show(i) {
-      index = i;
-      answered = false;
-      var it = current();
-      var box = sceneBox();
-      slots = layout(ctx, [hud(), box], [
-        stepLabel('Problem ' + (i + 1) + ' of ' + items.length),
-        title(it.title),
-        story(it.story),
-        h('div', { class: 'clue is-open' },
-          h('span', { class: 'clue-icon' }, ui.svgIcon(ui.ICON.clue)),
-          h('p', null, h('strong', null, 'Clue: '), it.clue)),
-        h('p', { class: 'question' }, 'What should you do?'),
-        h('div', { class: 'choices choices--stack' }, it.options.map(function (o, k) {
-          return choice(o.label, null, {
-            key: String(k + 1),
-            tag: o.id === it.nexusPick ? 'NEXUS suggests' : null,
-            onClick: function () { decide(k); }
-          });
-        }))
-      ]);
-      scene = CQ.network.create(box);
-      scene.show({ from: it.visual.from, to: it.visual.to, focus: it.visual.focus, tag: it.visual.tag,
-        state: it.truth === 'malicious' ? 'danger' : 'alert', tone: it.truth === 'malicious' ? 'danger' : 'warn' });
-      ctx.nexus.say(i === 0 ? 'The network is under attack! Health drops every second. Act fast!' : i === items.length - 1 ? 'Last one! Check the clue. I might be wrong here.' : 'Next problem. Quick, but careful!', 'alert');
-      ctx.audio.play('alert');
-      ctx.progress(i / items.length);
-      running = true;
-      lastTick = CQ.game.now();
+    function open(id) {
+      if (st.phase === 'feedback' || st.open.indexOf(id) < 0) return;
+      st.selected = id;
+      st.phase = 'problem';
+      ctx.audio.play('select');
+      var it = item(id);
+      var pick = it.options.filter(function (o) { return o.id === it.nexusPick; })[0];
+      ctx.nexus.say(pick && pick.grade !== 'best' ? 'nx.m4.lastWrongPick' : 'nx.m4.open');
+      render();
       ctx.armHint();
       ui.focus(ctx.stage, '.challenge-title');
     }
 
+    function backToBoard() {
+      if (st.phase !== 'problem') return;
+      st.phase = 'board';
+      st.selected = null;
+      render();
+      ui.focus(ctx.stage, '.choice');
+    }
+
     function decide(k) {
-      var it = current();
-      if (!it || answered || ended) return;
+      if (st.phase !== 'problem' || ended) return;
+      var it = item(st.selected);
       var option = it.options[k];
       if (!option) return;
-      answered = true;
-      running = false;
-      resolved[it.id] = { option: option, contained: !!option.contained };
+      st.resolved[it.id] = { option: option, contained: !!option.contained };
+      st.open = st.open.filter(function (x) { return x !== it.id; });
+      st.lastResult = { id: it.id, option: option };
+      st.phase = 'feedback';
 
-      ctx.game.award(option.points, it.title + ': ' + (option.grade === 'best' ? 'best choice' : option.grade === 'acceptable' ? 'okay choice' : 'wrong choice'));
+      ctx.game.award(option.points, { k: 'ledger.m4', v: { title: it.title, grade: { t: 'grade.' + option.grade } } });
       ctx.game.applyEffects(option.effects);
       var pick = it.options.filter(function (o) { return o.id === it.nexusPick; })[0];
       ctx.game.recordDecision({
@@ -622,84 +896,87 @@
         malicious: it.truth === 'malicious', contained: !!option.contained,
         ai: pick ? { recommendedBest: pick.grade === 'best', followed: option.id === pick.id, chosenWrong: option.grade === 'wrong' } : null
       });
-      if (ended) return; // a big enough hit can end the game (breach)
-      scene.resolve(it.visual.focus, option.node);
+      if (ended) return; // a big enough hit can end the game
       var tone = ui.toneForGrade(option.grade);
-      ctx.audio.play(tone === 'good' ? 'success' : tone === 'bad' ? 'error' : 'process');
-      if (pick && pick.grade !== 'best' && option.grade === 'best') ctx.nexus.say('You spotted my mistake. Great teamwork!', 'happy');
-      else ctx.nexus.say(tone === 'good' ? pick === option ? 'We agreed, and we were right!' : 'Great decision!' : tone === 'okay' ? 'That works, but it caused some trouble.' : 'Ouch. That problem is still hurting the network.', tone === 'good' ? 'happy' : 'calm');
-      ui.announce(option.text);
-
-      var last = index === items.length - 1;
-      replacePanel(slots, [
-        stepLabel('Problem ' + (index + 1) + ' of ' + items.length),
-        title(it.title),
-        ui.feedback(tone, option.text, option.points),
-        continueButton(last ? 'See how you did' : 'Next problem', next)
-      ]);
-      ctx.progress((index + 1) / items.length);
+      ctx.audio.play(tone === 'bad' ? 'error' : option.contained ? 'stop' : tone === 'good' ? 'success' : 'process');
+      if (pick && pick.grade !== 'best' && option.grade === 'best') ctx.nexus.say('nx.m4.caught', null, 'happy');
+      else ctx.nexus.say(tone === 'good' ? (it.truth === 'malicious' ? 'nx.m4.good' : 'nx.m4.goodSafe') : tone === 'okay' ? 'nx.m4.okay' : 'nx.m4.bad', null, tone === 'good' ? 'happy' : 'calm');
+      st.selected = null;
+      render();
+      if (scene && option.contained && tone !== 'bad') scene.burst(it.at);
+      ui.announce(L(option.text));
+      ctx.progress(Object.keys(st.resolved).length / items.length);
       ctx.disarmHint();
       ui.focus(ctx.stage, '.btn-continue');
     }
 
-    function next() {
-      if (!answered || ended) return;
-      if (scene) { scene.destroy(); scene = null; }
-      if (index < items.length - 1) show(index + 1);
-      else end('cleared');
+    function afterFeedback() {
+      if (st.phase !== 'feedback' || ended) return;
+      if (Object.keys(st.resolved).length === items.length) { end('cleared'); return; }
+      st.phase = 'board';
+      lastTick = CQ.game.now();
+      fillOpen(true);
+      render();
+      ctx.armHint();
+      ui.focus(ctx.stage, '.choice');
     }
 
     function tick() {
       if (ended) return;
-      var t = CQ.game.now();
-      var dt = (t - lastTick) / 1000;
-      lastTick = t;
-      // Active threats (including ones answered wrongly) drain health while the clock runs.
-      // The clock and the drain pause while feedback is on screen.
-      var rate = drainRate();
-      if (rate > 0 && running) ctx.game.drainIntegrity(rate * dt);
+      var now = CQ.game.now();
+      var dt = (now - lastTick) / 1000;
+      lastTick = now;
+      if (!running()) return;
+      var rate = activeThreats().reduce(function (s, it) { return s + it.drain; }, 0);
+      if (rate > 0) ctx.game.drainIntegrity(rate * dt);
       if (ended) return;
-      if (running) timeLeft = Math.max(0, timeLeft - dt);
-      var whole = Math.ceil(timeLeft) + Math.round(ctx.game.state.integrity) * 1000;
-      if (whole !== lastWhole) { lastWhole = whole; updateHud(); if (running && timeLeft <= 10 && timeLeft > 0) ctx.audio.play('tick'); }
-      if (timeLeft <= 0) end('timeout');
+      st.timeLeft = Math.max(0, st.timeLeft - dt);
+      var shown = Math.ceil(st.timeLeft) + ':' + Math.round(ctx.game.state.integrity);
+      if (shown !== lastShown) {
+        lastShown = shown;
+        updateHud();
+        if (st.timeLeft <= 10 && st.timeLeft > 0 && Math.ceil(st.timeLeft) !== Math.ceil(st.timeLeft + dt)) ctx.audio.play('tick');
+      }
+      if (st.timeLeft <= 0) end('timeout');
     }
 
     function end(reason) {
       if (ended) return;
       ended = true;
-      running = false;
       ctx.clock.cancel(loopId);
       ctx.disarmHint();
       var g = ctx.game;
-
       items.forEach(function (it) {
-        if (resolved[it.id]) return;
+        if (st.resolved[it.id]) return;
         if (it.truth === 'malicious') {
-          g.award(MISSED_PENALTY, 'Ran out of time: ' + it.title.toLowerCase());
+          g.award(MISSED_PENALTY, { k: 'ledger.missed', v: { title: it.title } });
           g.recordMissedThreat(it.id);
         }
       });
-      var allDone = Object.keys(resolved).length === items.length;
-      if (reason === 'cleared' && allDone && timeLeft > 0) {
-        g.award(Math.round(timeLeft * TIME_BONUS_PER_SECOND), 'Time left: ' + Math.round(timeLeft) + ' seconds', 'bonus');
+      if (reason === 'cleared' && st.timeLeft > 0) {
+        g.award(Math.round(st.timeLeft * TIME_BONUS_PER_SECOND), { k: 'ledger.timeLeft', v: { s: Math.round(st.timeLeft) } }, 'bonus');
       }
       if (!g.state.breached) {
-        g.award(Math.round(g.state.integrity * HEALTH_BONUS_FACTOR), 'Network health: ' + Math.round(g.state.integrity) + '%', 'bonus');
+        g.award(Math.round(g.state.integrity * HEALTH_BONUS_FACTOR), { k: 'ledger.health', v: { n: Math.round(g.state.integrity) } }, 'bonus');
       }
-      var active = items.filter(function (it, i) { return isActiveThreat(it, i); }).length;
+      var active = activeThreats().length;
       g.setThreat(active ? 55 + active * 15 : Math.min(g.state.threat, 15));
-      ctx.audio.play(reason === 'cleared' && !active ? 'complete' : 'failure');
-      ctx.complete({ reason: reason, timeLeft: timeLeft });
+      ctx.complete({ reason: reason, timeLeft: st.timeLeft });
     }
 
     return {
       start: function () {
         offBreach = ctx.game.on('breach', function () { end('breach'); });
+        fillOpen(false);
         lastTick = CQ.game.now();
-        show(0);
+        render();
+        ctx.nexus.say('nx.m4.start', null, 'alert');
+        ctx.audio.play('alert');
+        ctx.armHint();
+        ui.focus(ctx.stage, '.choice');
         loopId = ctx.clock.every(200, tick);
       },
+      render: render,
       destroy: function () {
         ended = true;
         ctx.clock.cancel(loopId);
@@ -707,12 +984,12 @@
         if (offBreach) offBreach();
       },
       onKey: function (key) {
-        if (answered) return;
-        if (key === '1' || key === '2' || key === '3') decide(Number(key) - 1);
+        if (st.phase === 'problem' && (key === '1' || key === '2' || key === '3')) decide(Number(key) - 1);
+        else if (st.phase === 'board' && (key === '1' || key === '2') && st.open[Number(key) - 1]) open(st.open[Number(key) - 1]);
       },
       hint: function () {
-        if (answered) return 'Press Continue for the next problem.';
-        return 'Pick the choice that fixes the problem without breaking everything else.';
+        if (st.phase === 'feedback') return 'hint.continue';
+        return st.phase === 'problem' ? 'hint.m4.open' : 'hint.m4.board';
       }
     };
   }
